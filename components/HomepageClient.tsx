@@ -73,21 +73,98 @@ function improvementExplanation(retning: "lavere_bedre" | "hoejere_bedre") {
     : "Bedre = højere niveau end i 2018";
 }
 
+function StatPill({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-full border border-slate-200/80 bg-white/80 px-3 py-1.5 text-xs text-slate-600 shadow-sm backdrop-blur">
+      <span className="font-medium text-slate-500">{label}</span>{" "}
+      <span className="font-semibold text-slate-800">{value}</span>
+    </div>
+  );
+}
+
+function SectionIntro({
+  eyebrow,
+  title,
+  text,
+}: {
+  eyebrow?: string;
+  title: string;
+  text?: string;
+}) {
+  return (
+    <div>
+      {eyebrow ? (
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+          {eyebrow}
+        </div>
+      ) : null}
+      <div className="mt-2 text-[30px] font-semibold tracking-tight text-slate-950">
+        {title}
+      </div>
+      {text ? <div className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{text}</div> : null}
+    </div>
+  );
+}
+
+function CardEyebrow({
+  children,
+  tone = "slate",
+}: {
+  children: React.ReactNode;
+  tone?: "amber" | "sky" | "rose" | "emerald" | "slate";
+}) {
+  const toneClasses = {
+    amber: "bg-amber-50 text-amber-700 border-amber-100",
+    sky: "bg-sky-50 text-sky-700 border-sky-100",
+    rose: "bg-rose-50 text-rose-700 border-rose-100",
+    emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    slate: "bg-slate-100 text-slate-700 border-slate-200",
+  };
+
+  return (
+    <div
+      className={cn(
+        "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide",
+        toneClasses[tone]
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 function GlassCard({
   className,
   children,
   hover = false,
+  accent = "slate",
 }: {
   className?: string;
   children: React.ReactNode;
   hover?: boolean;
+  accent?: "amber" | "sky" | "rose" | "emerald" | "slate";
 }) {
+  const accentBar = {
+    amber: "before:bg-amber-300/80",
+    sky: "before:bg-sky-300/80",
+    rose: "before:bg-rose-300/80",
+    emerald: "before:bg-emerald-300/80",
+    slate: "before:bg-slate-300/80",
+  };
+
   return (
     <div
       className={cn(
-        "rounded-2xl border border-slate-200/80 bg-white/72 backdrop-blur-md shadow-[0_10px_30px_rgba(15,23,42,0.06)]",
+        "relative overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/76 backdrop-blur-xl shadow-[0_10px_30px_rgba(15,23,42,0.06)] before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px]",
+        accentBar[accent],
         hover &&
-          "transition-all duration-300 hover:scale-[1.05] hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(15,23,42,0.14)] hover:bg-white/90",
+          "transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(15,23,42,0.14)] hover:bg-white/90",
         className
       )}
     >
@@ -105,10 +182,10 @@ function MenuDatabases({
 }) {
   return (
     <div className="relative group">
-      <button className="text-sm text-slate-700 hover:text-slate-950 transition-colors">
+      <button className="rounded-full px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-white/70 hover:text-slate-950">
         Databaser
       </button>
-      <div className="invisible absolute left-0 top-full z-30 mt-2 w-80 rounded-2xl border border-slate-200 bg-white/95 p-3 opacity-0 shadow-xl backdrop-blur-md transition-all duration-200 group-hover:visible group-hover:opacity-100">
+      <div className="invisible absolute left-0 top-full z-30 mt-2 w-80 rounded-3xl border border-slate-200 bg-white/95 p-3 opacity-0 shadow-2xl backdrop-blur-xl transition-all duration-200 group-hover:visible group-hover:opacity-100">
         <div className="max-h-80 overflow-auto">
           {databases
             .slice()
@@ -117,7 +194,7 @@ function MenuDatabases({
               <button
                 key={db.database_id}
                 onClick={() => onSelect(db.database_id)}
-                className="block w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
+                className="block w-full rounded-2xl px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100"
               >
                 {db.database_navn}
               </button>
@@ -135,20 +212,20 @@ function MenuHospitals({
 }) {
   return (
     <div className="relative group">
-      <button className="text-sm text-slate-700 hover:text-slate-950 transition-colors">
+      <button className="rounded-full px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-white/70 hover:text-slate-950">
         Hospitaler
       </button>
-      <div className="invisible absolute left-0 top-full z-30 mt-2 w-[340px] rounded-2xl border border-slate-200 bg-white/95 p-3 opacity-0 shadow-xl backdrop-blur-md transition-all duration-200 group-hover:visible group-hover:opacity-100">
+      <div className="invisible absolute left-0 top-full z-30 mt-2 w-[340px] rounded-3xl border border-slate-200 bg-white/95 p-3 opacity-0 shadow-2xl backdrop-blur-xl transition-all duration-200 group-hover:visible group-hover:opacity-100">
         <div className="max-h-80 overflow-auto space-y-3">
           {hospitalsByRegion.map(([region, regionHospitals]) => (
             <div key={region}>
-              <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                 {region}
               </div>
               {regionHospitals.map((h) => (
                 <button
                   key={h.hospital_id}
-                  className="block w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
+                  className="block w-full rounded-2xl px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100"
                 >
                   {h.hospital_navn}
                 </button>
@@ -168,22 +245,22 @@ function MenuDataOgRapporter({
 }) {
   return (
     <div className="relative group">
-      <button className="text-sm text-slate-700 hover:text-slate-950 transition-colors">
+      <button className="rounded-full px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-white/70 hover:text-slate-950">
         Data og rapporter
       </button>
 
-      <div className="invisible absolute left-0 top-full z-30 mt-2 w-72 rounded-2xl border border-slate-200 bg-white/95 p-2 opacity-0 shadow-xl backdrop-blur-md transition-all duration-200 group-hover:visible group-hover:opacity-100">
-        <button className="block w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100">
+      <div className="invisible absolute left-0 top-full z-30 mt-2 w-72 rounded-3xl border border-slate-200 bg-white/95 p-2 opacity-0 shadow-2xl backdrop-blur-xl transition-all duration-200 group-hover:visible group-hover:opacity-100">
+        <button className="block w-full rounded-2xl px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100">
           Dyk ned i data
         </button>
 
         <div className="relative group/reports">
-          <button className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100">
+          <button className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100">
             <span>Årsrapporter</span>
             <span className="text-slate-400">›</span>
           </button>
 
-          <div className="invisible absolute left-full top-0 ml-2 z-40 w-80 rounded-2xl border border-slate-200 bg-white/95 p-3 opacity-0 shadow-xl backdrop-blur-md transition-all duration-200 group-hover/reports:visible group-hover/reports:opacity-100">
+          <div className="invisible absolute left-full top-0 z-40 ml-2 w-80 rounded-3xl border border-slate-200 bg-white/95 p-3 opacity-0 shadow-2xl backdrop-blur-xl transition-all duration-200 group-hover/reports:visible group-hover/reports:opacity-100">
             <div className="max-h-80 overflow-auto">
               {databases
                 .slice()
@@ -191,7 +268,7 @@ function MenuDataOgRapporter({
                 .map((db) => (
                   <button
                     key={db.database_id}
-                    className="block w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
+                    className="block w-full rounded-2xl px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100"
                   >
                     {db.database_navn}
                   </button>
@@ -212,12 +289,14 @@ function SegmentedToggle({
   onChange: (value: "hospital" | "afdeling") => void;
 }) {
   return (
-    <div className="inline-flex rounded-xl border border-slate-200 bg-white/80 p-1 text-sm shadow-sm">
+    <div className="inline-flex rounded-2xl border border-slate-200 bg-white/85 p-1 text-sm shadow-sm backdrop-blur">
       <button
         onClick={() => onChange("hospital")}
         className={cn(
-          "rounded-lg px-3 py-1.5 transition-colors",
-          value === "hospital" ? "bg-slate-900 text-white" : "text-slate-700"
+          "rounded-xl px-3.5 py-2 transition-colors",
+          value === "hospital"
+            ? "bg-slate-950 text-white shadow-sm"
+            : "text-slate-700 hover:text-slate-950"
         )}
       >
         Hospitaler
@@ -225,8 +304,10 @@ function SegmentedToggle({
       <button
         onClick={() => onChange("afdeling")}
         className={cn(
-          "rounded-lg px-3 py-1.5 transition-colors",
-          value === "afdeling" ? "bg-slate-900 text-white" : "text-slate-700"
+          "rounded-xl px-3.5 py-2 transition-colors",
+          value === "afdeling"
+            ? "bg-slate-950 text-white shadow-sm"
+            : "text-slate-700 hover:text-slate-950"
         )}
       >
         Afdelinger
@@ -294,34 +375,35 @@ function MagiskKvadrant({
   }));
 
   return (
-    <GlassCard className="p-5">
+    <GlassCard accent="sky" className="p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="text-2xl font-semibold tracking-tight text-slate-900">
-            Magisk Kvadrant – hvem klarer sig godt og hvem forbedrer sig?
+          <CardEyebrow tone="sky">Performancekort</CardEyebrow>
+          <div className="mt-3 text-[30px] font-semibold tracking-tight text-slate-950">
+            Magisk Kvadrant
           </div>
-          <div className="mt-1 text-sm text-slate-600">
+          <div className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
             Øverst = bedre niveau. Mod højre = større forbedring. Hver bobbel er{" "}
             {visning === "hospital" ? "et hospital" : "en afdeling"}.
           </div>
         </div>
       </div>
 
-      <div className="mt-5 rounded-2xl border border-slate-200 bg-white/55 p-4">
-        <div className="relative h-[320px] w-full rounded-xl">
+      <div className="mt-6 rounded-[24px] border border-slate-200 bg-white/60 p-4">
+        <div className="relative h-[320px] w-full rounded-2xl">
           <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-slate-300" />
           <div className="absolute inset-y-0 left-1/2 border-l border-dashed border-slate-300" />
 
-          <div className="absolute left-2 top-2 rounded-full bg-emerald-50 px-3 py-1.5 text-[12px] text-emerald-700">
+          <div className="absolute left-2 top-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[12px] font-medium text-emerald-700">
             Stærke frontløbere
           </div>
-          <div className="absolute right-2 top-2 rounded-full bg-sky-50 px-3 py-1.5 text-[12px] text-sky-700">
+          <div className="absolute right-2 top-2 rounded-full border border-sky-100 bg-sky-50 px-3 py-1.5 text-[12px] font-medium text-sky-700">
             Forbedrer sig og ligger godt
           </div>
-          <div className="absolute left-2 bottom-2 rounded-full bg-amber-50 px-3 py-1.5 text-[12px] text-amber-700">
+          <div className="absolute bottom-2 left-2 rounded-full border border-amber-100 bg-amber-50 px-3 py-1.5 text-[12px] font-medium text-amber-700">
             Under udvikling
           </div>
-          <div className="absolute right-2 bottom-2 rounded-full bg-rose-50 px-3 py-1.5 text-[12px] text-rose-700">
+          <div className="absolute bottom-2 right-2 rounded-full border border-rose-100 bg-rose-50 px-3 py-1.5 text-[12px] font-medium text-rose-700">
             Kræver opmærksomhed
           </div>
 
@@ -330,7 +412,7 @@ function MagiskKvadrant({
               key={p.id}
               onMouseEnter={() => setHovered({ point: p, x: p.x, y: p.y })}
               onMouseLeave={() => setHovered(null)}
-              className="absolute h-4 w-4 rounded-full border border-sky-500/60 bg-sky-400/70 shadow-sm transition-transform hover:scale-125"
+              className="absolute h-4 w-4 rounded-full border border-sky-500/60 bg-sky-400/75 shadow-sm transition-transform hover:scale-125"
               style={{
                 left: `${p.x}%`,
                 bottom: `${p.y}%`,
@@ -341,14 +423,14 @@ function MagiskKvadrant({
 
           {hovered && (
             <div
-              className="pointer-events-none absolute z-20 w-[260px] rounded-2xl border border-slate-200 bg-white/96 px-4 py-3 shadow-2xl backdrop-blur-md"
+              className="pointer-events-none absolute z-20 w-[260px] rounded-[24px] border border-slate-200 bg-white/96 px-4 py-3 shadow-2xl backdrop-blur-xl"
               style={{
                 left: `${hovered.x}%`,
                 bottom: hovered.y > 25 ? `${hovered.y - 8}%` : `${hovered.y + 8}%`,
                 transform: "translate(-50%, 50%)",
               }}
             >
-              <div className="text-sm font-semibold text-slate-900">{hovered.point.navn}</div>
+              <div className="text-sm font-semibold text-slate-950">{hovered.point.navn}</div>
               <div className="text-xs text-slate-500">{hovered.point.region}</div>
               <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
                 <div>
@@ -369,7 +451,9 @@ function MagiskKvadrant({
                   </div>
                 </div>
               </div>
-              <div className="mt-2 text-[11px] text-slate-500">{indikatorNavn}</div>
+              <div className="mt-3 border-t border-slate-100 pt-2 text-[11px] text-slate-500">
+                {indikatorNavn}
+              </div>
             </div>
           )}
 
@@ -533,65 +617,89 @@ export default function HomepageClient({
         </div>
       </div>
 
-      <div className="relative z-10 mx-auto max-w-6xl px-5 pb-20">
-        <header className="sticky top-0 z-20 flex items-center justify-between py-5 backdrop-blur-md">
-          <div className="text-sm font-semibold tracking-tight">SundK Insight</div>
+      <div className="relative z-10 mx-auto max-w-6xl px-5 pb-24">
+        <header className="sticky top-0 z-30 pt-4">
+          <div className="rounded-[28px] border border-slate-200/80 bg-white/72 px-5 py-4 shadow-[0_10px_35px_rgba(15,23,42,0.07)] backdrop-blur-xl">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white shadow-sm">
+                  SK
+                </div>
+                <div>
+                  <div className="text-sm font-semibold tracking-tight text-slate-950">
+                    SundK Insight
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Offentlig kvalitetsindsigt · demo
+                  </div>
+                </div>
+                <div className="hidden md:inline-flex rounded-full border border-sky-100 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-sky-700">
+                  Beta
+                </div>
+              </div>
 
-          <nav className="hidden md:flex items-center gap-7 text-sm text-slate-700">
-            <MenuDatabases databases={databases} onSelect={handleSelectDatabase} />
-            <MenuHospitals hospitalsByRegion={hospitalsByRegion} />
-            <MenuDataOgRapporter databases={databases} />
-          </nav>
+              <nav className="hidden items-center gap-2 md:flex">
+                <MenuDatabases databases={databases} onSelect={handleSelectDatabase} />
+                <MenuHospitals hospitalsByRegion={hospitalsByRegion} />
+                <MenuDataOgRapporter databases={databases} />
+              </nav>
 
-          <div className="hidden sm:flex items-center gap-2 rounded-full bg-white/75 border border-slate-200 px-3 py-2 shadow-sm backdrop-blur">
-            <span className="text-slate-400 text-sm">🔎</span>
-            <input
-              className="w-44 bg-transparent text-sm outline-none placeholder:text-slate-400"
-              placeholder="Søg"
-            />
+              <div className="hidden items-center gap-2 rounded-full border border-slate-200 bg-white/85 px-3 py-2 shadow-sm backdrop-blur sm:flex">
+                <span className="text-sm text-slate-400">🔎</span>
+                <input
+                  className="w-44 bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  placeholder="Søg"
+                />
+              </div>
+            </div>
           </div>
         </header>
 
-        <section className="pt-4">
-          <div className="max-w-3xl">
-            <h1 className="text-5xl sm:text-6xl font-semibold tracking-tight leading-[0.95] text-slate-900">
+        <section className="pt-8">
+          <div className="max-w-4xl">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              National kvalitetsindsigt
+            </div>
+            <h1 className="mt-4 text-5xl font-semibold leading-[0.92] tracking-tight text-slate-950 sm:text-6xl">
               Kvalitet. Niveau.
               <br />
               Bevægelse.
             </h1>
-            <p className="mt-5 max-w-xl text-lg text-slate-700">
-              70+ kliniske kvalitetsdatabaser.
-              <br />
-              Se hvem der ligger bedst – og hvem der forbedrer sig mest.
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-700">
+              70+ kliniske kvalitetsdatabaser. Se hvem der ligger bedst, hvem der flytter
+              sig mest, og hvor variationen fortsat er størst.
             </p>
 
-            <div className="mt-7 flex flex-wrap gap-3">
-              <button className="rounded-xl bg-white/85 border border-slate-200 px-4 py-2.5 text-sm font-medium shadow-sm hover:bg-white transition-colors">
+            <div className="mt-7 flex flex-wrap gap-2.5">
+              <StatPill label="Databaser" value="70+" />
+              <StatPill label="Seneste år" value={String(senesteAar)} />
+              <StatPill label="Valgt database" value={selectedDatabase.database_navn} />
+            </div>
+
+            <div className="mt-8 flex flex-wrap gap-3">
+              <button className="rounded-2xl border border-slate-200 bg-white/88 px-4 py-2.5 text-sm font-medium text-slate-900 shadow-sm transition-colors hover:bg-white">
                 Udforsk klinisk database
               </button>
-              <button className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-slate-800 transition-colors">
+              <button className="rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-800">
                 Start søgning
               </button>
             </div>
           </div>
         </section>
 
-        <section className="mt-12">
+        <section className="mt-14">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <div className="text-2xl font-semibold tracking-tight text-slate-900">
-                Nationalt overblik – {selectedDatabase.database_navn}
-              </div>
-              <div className="mt-1 text-sm text-slate-600">
-                Viser aktuelt nationalt overblik for den valgte database og indikator.
-              </div>
-            </div>
+            <SectionIntro
+              eyebrow="Overblik"
+              title={`Nationalt overblik – ${selectedDatabase.database_navn}`}
+              text="Viser aktuelt nationalt overblik for den valgte database og indikator."
+            />
 
             <div className="flex flex-wrap gap-3">
               <select
                 value={selectedDatabaseId}
                 onChange={(e) => handleSelectDatabase(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-sm shadow-sm outline-none"
+                className="rounded-2xl border border-slate-200 bg-white/85 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm outline-none backdrop-blur"
               >
                 {databases
                   .slice()
@@ -606,7 +714,7 @@ export default function HomepageClient({
               <select
                 value={selectedIndikatorId}
                 onChange={(e) => setSelectedIndikatorId(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-sm shadow-sm outline-none"
+                className="rounded-2xl border border-slate-200 bg-white/85 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm outline-none backdrop-blur"
               >
                 {indikatorerForDatabase.map((ind) => (
                   <option key={ind.indikator_id} value={ind.indikator_id}>
@@ -617,105 +725,120 @@ export default function HomepageClient({
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <GlassCard hover className="p-5">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <GlassCard hover accent="amber" className="p-6">
+              <div className="flex items-start justify-between gap-4">
+                <CardEyebrow tone="amber">Benchmark</CardEyebrow>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
                   <IconTrophy />
                 </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-slate-800">Bedste samlede niveau</div>
-                  <div className="mt-3 text-4xl font-semibold tracking-tight text-slate-900">
-                    {best ? `#1 ${best.hospital_navn}` : "—"}
-                  </div>
-                  <div className="mt-1 text-xs text-slate-600">
-                    {selectedIndicatorName} · {selectedDatabase.database_navn}
-                  </div>
+              </div>
 
-                  <div className="mt-4 space-y-1.5">
-                    {top3.map((r) => (
-                      <div key={r.hospital_id} className="flex items-center justify-between text-sm text-slate-700">
-                        <span>{`#${r.rang_hospital} ${r.hospital_navn}`}</span>
-                        <span className="font-medium">
-                          {r.vaerdi_hospital.toFixed(1)}
-                          {unit}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+              <div className="mt-5">
+                <div className="text-sm font-medium text-slate-600">Bedste samlede niveau</div>
+                <div className="mt-3 text-[2.2rem] font-semibold leading-none tracking-tight text-slate-950">
+                  {best ? `#1 ${best.hospital_navn}` : "—"}
                 </div>
+                <div className="mt-2 text-sm text-slate-500">
+                  {selectedIndicatorName} · {selectedDatabase.database_navn}
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-2.5 border-t border-slate-100 pt-4">
+                {top3.map((r) => (
+                  <div key={r.hospital_id} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-700">{`#${r.rang_hospital} ${r.hospital_navn}`}</span>
+                    <span className="font-semibold text-slate-900">
+                      {r.vaerdi_hospital.toFixed(1)}
+                      {unit}
+                    </span>
+                  </div>
+                ))}
               </div>
             </GlassCard>
 
-            <GlassCard hover className="p-5">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+            <GlassCard hover accent="sky" className="p-6">
+              <div className="flex items-start justify-between gap-4">
+                <CardEyebrow tone="sky">Bevægelse</CardEyebrow>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
                   <IconSpark />
                 </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-slate-800">Mest forbedret siden 2018</div>
-                  <div className="mt-3 text-4xl font-semibold tracking-tight text-slate-900">
-                    {improved3[0]
-                      ? formatImprovement(
-                          improved3[0].forbedring_siden_baseline_hospital,
-                          improved3[0].enhed,
-                          improved3[0].retning
-                        )
-                      : "—"}
-                  </div>
-                  <div className="mt-1 text-xs text-slate-600">
-                    {selectedIndicatorName} · {selectedDatabase.database_navn}
-                  </div>
-                  <div className="mt-1 text-[11px] text-slate-500">
-                    {hospitalView[0] ? improvementExplanation(hospitalView[0].retning) : ""}
-                  </div>
+              </div>
 
-                  <div className="mt-4 space-y-1.5">
-                    {improved3.map((r, idx) => (
-                      <div key={r.hospital_id} className="flex items-center justify-between text-sm text-slate-700">
-                        <span>{`#${idx + 1} ${r.hospital_navn}`}</span>
-                        <span className="font-medium">
-                          {formatImprovement(r.forbedring_siden_baseline_hospital, r.enhed, r.retning)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+              <div className="mt-5">
+                <div className="text-sm font-medium text-slate-600">Mest forbedret siden 2018</div>
+                <div className="mt-3 text-[2.2rem] font-semibold leading-none tracking-tight text-slate-950">
+                  {improved3[0]
+                    ? formatImprovement(
+                        improved3[0].forbedring_siden_baseline_hospital,
+                        improved3[0].enhed,
+                        improved3[0].retning
+                      )
+                    : "—"}
                 </div>
+                <div className="mt-2 text-sm text-slate-500">
+                  {selectedIndicatorName} · {selectedDatabase.database_navn}
+                </div>
+                <div className="mt-2 text-[11px] text-slate-500">
+                  {hospitalView[0] ? improvementExplanation(hospitalView[0].retning) : ""}
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-2.5 border-t border-slate-100 pt-4">
+                {improved3.map((r, idx) => (
+                  <div key={r.hospital_id} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-700">{`#${idx + 1} ${r.hospital_navn}`}</span>
+                    <span className="font-semibold text-slate-900">
+                      {formatImprovement(r.forbedring_siden_baseline_hospital, r.enhed, r.retning)}
+                    </span>
+                  </div>
+                ))}
               </div>
             </GlassCard>
 
-            <GlassCard hover className="p-5">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-700">
+            <GlassCard hover accent="rose" className="p-6">
+              <div className="flex items-start justify-between gap-4">
+                <CardEyebrow tone="rose">Variation</CardEyebrow>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-50 text-rose-700">
                   <IconVariation />
                 </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-slate-800">Største variation mellem hospitaler</div>
-                  <div className="mt-3 text-4xl font-semibold tracking-tight text-slate-900">
-                    {variation.toFixed(1)}
-                    {unit}
-                  </div>
-                  <div className="mt-1 text-xs text-slate-600">{selectedDatabase.database_navn}</div>
+              </div>
 
-                  <div className="mt-4 space-y-1.5 text-sm text-slate-700">
-                    <div className="flex items-center justify-between">
-                      <span>Indikator</span>
-                      <span className="font-medium">{selectedIndicatorName}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>År</span>
-                      <span className="font-medium">{senesteAar}</span>
-                    </div>
-                  </div>
+              <div className="mt-5">
+                <div className="text-sm font-medium text-slate-600">
+                  Største variation mellem hospitaler
+                </div>
+                <div className="mt-3 text-[2.2rem] font-semibold leading-none tracking-tight text-slate-950">
+                  {variation.toFixed(1)}
+                  {unit}
+                </div>
+                <div className="mt-2 text-sm text-slate-500">{selectedDatabase.database_navn}</div>
+              </div>
+
+              <div className="mt-6 space-y-3 border-t border-slate-100 pt-4 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Indikator</span>
+                  <span className="font-semibold text-slate-900">{selectedIndicatorName}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">År</span>
+                  <span className="font-semibold text-slate-900">{senesteAar}</span>
                 </div>
               </div>
             </GlassCard>
           </div>
         </section>
 
-        <section className="mt-10">
-          <div className="mb-3 flex items-center justify-end">
-            <SegmentedToggle value={kvadrantVisning} onChange={setKvadrantVisning} />
+        <section className="mt-12">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <SectionIntro
+              eyebrow="Analyse"
+              title="Performance på tværs"
+              text="Sammenlign niveau og udvikling for hospitaler og afdelinger i den valgte indikator."
+            />
+            <div className="shrink-0">
+              <SegmentedToggle value={kvadrantVisning} onChange={setKvadrantVisning} />
+            </div>
           </div>
 
           <MagiskKvadrant
@@ -725,59 +848,68 @@ export default function HomepageClient({
           />
         </section>
 
-        <section className="mt-12">
-          <div className="text-2xl font-semibold tracking-tight text-slate-900">Vælg dit perspektiv</div>
+        <section className="mt-14">
+          <SectionIntro
+            eyebrow="Indgange"
+            title="Vælg dit perspektiv"
+            text="Udforsk data fra forskellige indgange alt efter rolle, behov og spørgsmål."
+          />
 
-          <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <GlassCard hover className="p-5">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-slate-900">Speciale / Database</div>
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <GlassCard hover accent="slate" className="p-6">
+              <CardEyebrow tone="slate">Indgang</CardEyebrow>
+              <div className="mt-4 flex items-center justify-between">
+                <div className="text-lg font-semibold text-slate-950">Speciale / Database</div>
                 <div className="text-slate-400">›</div>
               </div>
-              <div className="mt-2 text-sm text-slate-700">
+              <div className="mt-3 text-sm leading-6 text-slate-600">
                 Gå direkte til den kliniske database og se indikatorer, variation og udvikling.
               </div>
-              <div className="mt-4 text-xs text-slate-500">Perfekt til klinikere og kvalitetsfolk</div>
+              <div className="mt-5 border-t border-slate-100 pt-4 text-xs font-medium text-slate-500">
+                Perfekt til klinikere og kvalitetsfolk
+              </div>
             </GlassCard>
 
-            <GlassCard hover className="p-5">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-slate-900">Hospitaler</div>
+            <GlassCard hover accent="slate" className="p-6">
+              <CardEyebrow tone="slate">Indgang</CardEyebrow>
+              <div className="mt-4 flex items-center justify-between">
+                <div className="text-lg font-semibold text-slate-950">Hospitaler</div>
                 <div className="text-slate-400">›</div>
               </div>
-              <div className="mt-2 text-sm text-slate-700">
+              <div className="mt-3 text-sm leading-6 text-slate-600">
                 Se dit hospital på tværs: topplaceringer, forbedring, og hvor I halter.
               </div>
-              <div className="mt-4 text-xs text-slate-500">Perfekt til ledelse, presse og borgere</div>
+              <div className="mt-5 border-t border-slate-100 pt-4 text-xs font-medium text-slate-500">
+                Perfekt til ledelse, presse og borgere
+              </div>
             </GlassCard>
 
-            <GlassCard hover className="p-5">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-slate-900">Dyk ned i data</div>
+            <GlassCard hover accent="slate" className="p-6">
+              <CardEyebrow tone="slate">Indgang</CardEyebrow>
+              <div className="mt-4 flex items-center justify-between">
+                <div className="text-lg font-semibold text-slate-950">Dyk ned i data</div>
                 <div className="text-slate-400">›</div>
               </div>
-              <div className="mt-2 text-sm text-slate-700">
-                Gå helt i dybden med databaser, kvalitetsindikatorer og afdelinger. Du bygger selv dit helt eget overblik og skaber selv indsigten.
+              <div className="mt-3 text-sm leading-6 text-slate-600">
+                Gå helt i dybden med databaser, kvalitetsindikatorer og afdelinger. Byg dit
+                eget overblik og skab selv indsigten.
               </div>
-              <div className="mt-4 text-xs text-slate-500">Perfekt til klinikere og kvalitetsfolk</div>
+              <div className="mt-5 border-t border-slate-100 pt-4 text-xs font-medium text-slate-500">
+                Perfekt til klinikere og kvalitetsfolk
+              </div>
             </GlassCard>
           </div>
         </section>
 
-        <section className="mt-12">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <div className="text-2xl font-semibold tracking-tight text-slate-900">
-                70+ kliniske kvalitetsdatabaser
-              </div>
-              <div className="mt-1 text-sm text-slate-600">
-                Demo-visning på syntetiske data
-              </div>
-            </div>
-          </div>
+        <section className="mt-14">
+          <SectionIntro
+            eyebrow="Katalog"
+            title="70+ kliniske kvalitetsdatabaser"
+            text="Demo-visning på syntetiske data."
+          />
 
-          <GlassCard className="mt-5 overflow-hidden">
-            <div className="grid grid-cols-12 gap-0 border-b border-slate-200 bg-white/60 px-5 py-3 text-xs font-medium text-slate-700">
+          <GlassCard accent="slate" className="mt-6 overflow-hidden">
+            <div className="grid grid-cols-12 gap-0 border-b border-slate-200 bg-white/65 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600">
               <div className="col-span-5">Database</div>
               <div className="col-span-3">Speciale</div>
               <div className="col-span-2">Indikatorer</div>
@@ -785,17 +917,17 @@ export default function HomepageClient({
               <div className="col-span-1 text-right">Registreringskomplethed</div>
             </div>
 
-            <div className="divide-y divide-slate-200">
+            <div className="divide-y divide-slate-200/90">
               {dbPreview.map((r) => (
                 <div
                   key={r.database_id}
-                  className="grid grid-cols-12 px-5 py-4 text-sm bg-white/40 hover:bg-white/70 transition-colors"
+                  className="grid grid-cols-12 bg-white/40 px-5 py-4 text-sm transition-colors hover:bg-white/70"
                 >
-                  <div className="col-span-5 font-medium text-slate-900">{r.database_navn}</div>
+                  <div className="col-span-5 font-medium text-slate-950">{r.database_navn}</div>
                   <div className="col-span-3 text-slate-700">{r.speciale}</div>
                   <div className="col-span-2 text-slate-700">{r.indikatorer}</div>
                   <div className="col-span-1 text-slate-700">{r.opdateret}</div>
-                  <div className="col-span-1 text-right font-medium text-slate-900">{r.drift}</div>
+                  <div className="col-span-1 text-right font-semibold text-slate-950">{r.drift}</div>
                 </div>
               ))}
             </div>
