@@ -24,8 +24,10 @@ function cn(...classes: Array<string | false | null | undefined>) {
 
 function formatUnit(enhed: string) {
   if (enhed === "pct") return "%";
+  if (enhed === "%") return "%";
   if (enhed === "dage") return " dage";
   if (enhed === "timer") return " timer";
+  if (enhed === "index_0_100") return "";
   return "";
 }
 
@@ -48,21 +50,6 @@ function scoreNiveau(
 function scoreForbedring(v: number, min: number, max: number) {
   if (max === min) return 50;
   return ((v - min) / (max - min)) * 100;
-}
-
-function prettyIndicatorName(indikatorId: string) {
-  const map: Record<string, string> = {
-    mort_30d: "30-dages dødelighed",
-    overlevelse_1aar: "1-års overlevelse",
-    komplikation: "Komplikationsrate",
-    genindlaeggelse: "Genindlæggelse",
-    ventetid: "Ventetid",
-    tid_til_behandling: "Tid til behandling",
-    behandlingskvalitet: "Behandlingskvalitet",
-    patienttilfredshed: "Patienttilfredshed",
-    registreringsfuldkommenhed: "Registreringskomplethed",
-  };
-  return map[indikatorId] ?? indikatorId;
 }
 
 function formatImprovement(
@@ -295,10 +282,10 @@ function MagiskKvadrant({
   } | null>(null);
 
   const valid = rows.filter((r) => Number.isFinite(r.vaerdi) && Number.isFinite(r.forbedring));
-  const minValue = Math.min(...valid.map((r) => r.vaerdi));
-  const maxValue = Math.max(...valid.map((r) => r.vaerdi));
-  const minImp = Math.min(...valid.map((r) => r.forbedring));
-  const maxImp = Math.max(...valid.map((r) => r.forbedring));
+  const minValue = valid.length ? Math.min(...valid.map((r) => r.vaerdi)) : 0;
+  const maxValue = valid.length ? Math.max(...valid.map((r) => r.vaerdi)) : 0;
+  const minImp = valid.length ? Math.min(...valid.map((r) => r.forbedring)) : 0;
+  const maxImp = valid.length ? Math.max(...valid.map((r) => r.forbedring)) : 0;
 
   const points = valid.map((r) => ({
     ...r,
@@ -403,26 +390,38 @@ export default function HomepageClient({
 }: {
   data: HomepageData;
 }) {
-  const { hospitalLatest, departmentLatest, databases, hospitals, senesteAar } = data;
+  const { hospitalLatest, departmentLatest, databases, hospitals, indikators, senesteAar } = data;
 
   const dagensDatabase = getDagensDatabase(databases);
   const [selectedDatabaseId, setSelectedDatabaseId] = useState(dagensDatabase.database_id);
 
   const indikatorerForDatabase = useMemo(() => {
-    const ids = Array.from(
-      new Set(hospitalLatest.filter((r) => r.database_id === selectedDatabaseId).map((r) => r.indikator_id))
-    ).sort();
-    return ids;
-  }, [hospitalLatest, selectedDatabaseId]);
+    const idsForDatabase = new Set(
+      hospitalLatest
+        .filter((r) => r.database_id === selectedDatabaseId)
+        .map((r) => r.indikator_id)
+    );
+
+    return indikators
+      .filter((ind) => idsForDatabase.has(ind.indikator_id))
+      .sort((a, b) => a.indikator_navn.localeCompare(b.indikator_navn, "da"));
+  }, [hospitalLatest, indikators, selectedDatabaseId]);
 
   const [selectedIndikatorId, setSelectedIndikatorId] = useState(
-    indikatorerForDatabase.includes("mort_30d") ? "mort_30d" : indikatorerForDatabase[0]
+    indikatorerForDatabase.some((ind) => ind.indikator_id === "mort_30d")
+      ? "mort_30d"
+      : (indikatorerForDatabase[0]?.indikator_id ?? "")
   );
 
   const [kvadrantVisning, setKvadrantVisning] = useState<"hospital" | "afdeling">("hospital");
 
   const selectedDatabase =
     databases.find((d) => d.database_id === selectedDatabaseId) ?? databases[0];
+
+  const selectedIndicator =
+    indikators.find((ind) => ind.indikator_id === selectedIndikatorId) ??
+    indikatorerForDatabase[0] ??
+    null;
 
   const hospitalView = hospitalLatest.filter(
     (r) => r.database_id === selectedDatabaseId && r.indikator_id === selectedIndikatorId
@@ -432,12 +431,23 @@ export default function HomepageClient({
     (r) => r.database_id === selectedDatabaseId && r.indikator_id === selectedIndikatorId
   );
 
-  const selectedIndicatorName = prettyIndicatorName(selectedIndikatorId);
-  const unit = formatUnit(hospitalView[0]?.enhed ?? "");
+  const selectedIndicatorName = selectedIndicator?.indikator_navn ?? selectedIndikatorId;
+  const unit = formatUnit(hospitalView[0]?.enhed ?? selectedIndicator?.enhed ?? "");
   const best = [...hospitalView].sort((a, b) => a.rang_hospital - b.rang_hospital)[0];
   const top3 = [...hospitalView].sort((a, b) => a.rang_hospital - b.rang_hospital).slice(0, 3);
+
   const improved3 = [...hospitalView]
-    .sort((a, b) => b.forbedring_siden_baseline_hospital - a.forbedring_siden_baseline_hospital)
+    .sort((a, b) => {
+      const aScore =
+        a.retning === "lavere_bedre"
+          ? -a.forbedring_siden_baseline_hospital
+          : a.forbedring_siden_baseline_hospital;
+      const bScore =
+        b.retning === "lavere_bedre"
+          ? -b.forbedring_siden_baseline_hospital
+          : b.forbedring_siden_baseline_hospital;
+      return bScore - aScore;
+    })
     .slice(0, 3);
 
   const vals = hospitalView.map((r) => r.vaerdi_hospital).filter(Number.isFinite);
@@ -494,11 +504,18 @@ export default function HomepageClient({
 
   const handleSelectDatabase = (dbId: string) => {
     setSelectedDatabaseId(dbId);
-    const firstInd =
-      hospitalLatest.find((r) => r.database_id === dbId && r.indikator_id === "mort_30d")?.indikator_id ??
-      hospitalLatest.find((r) => r.database_id === dbId)?.indikator_id ??
-      "";
-    setSelectedIndikatorId(firstInd);
+
+    const availableIndicatorIds = new Set(
+      hospitalLatest
+        .filter((r) => r.database_id === dbId)
+        .map((r) => r.indikator_id)
+    );
+
+    const defaultIndicatorId = availableIndicatorIds.has("mort_30d")
+      ? "mort_30d"
+      : indikators.find((ind) => availableIndicatorIds.has(ind.indikator_id))?.indikator_id ?? "";
+
+    setSelectedIndikatorId(defaultIndicatorId);
   };
 
   return (
@@ -528,7 +545,10 @@ export default function HomepageClient({
 
           <div className="hidden sm:flex items-center gap-2 rounded-full bg-white/75 border border-slate-200 px-3 py-2 shadow-sm backdrop-blur">
             <span className="text-slate-400 text-sm">🔎</span>
-            <input className="w-44 bg-transparent text-sm outline-none placeholder:text-slate-400" placeholder="Søg" />
+            <input
+              className="w-44 bg-transparent text-sm outline-none placeholder:text-slate-400"
+              placeholder="Søg"
+            />
           </div>
         </header>
 
@@ -589,8 +609,8 @@ export default function HomepageClient({
                 className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-sm shadow-sm outline-none"
               >
                 {indikatorerForDatabase.map((ind) => (
-                  <option key={ind} value={ind}>
-                    {prettyIndicatorName(ind)}
+                  <option key={ind.indikator_id} value={ind.indikator_id}>
+                    {ind.indikator_navn}
                   </option>
                 ))}
               </select>
@@ -679,7 +699,7 @@ export default function HomepageClient({
 
                   <div className="mt-4 space-y-1.5 text-sm text-slate-700">
                     <div className="flex items-center justify-between">
-                      <span>Featured indikator</span>
+                      <span>Indikator</span>
                       <span className="font-medium">{selectedIndicatorName}</span>
                     </div>
                     <div className="flex items-center justify-between">

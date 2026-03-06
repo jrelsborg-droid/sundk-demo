@@ -1,0 +1,10 @@
+indikator_id,indikator_navn,indikator_type,retning,enhed
+mort_30d,30-dages dødelighed,Outcome,lavere_bedre,pct
+overlevelse_1aar,1-års overlevelse,Outcome,hoejere_bedre,pct
+komplikation,Komplikationsrate,Outcome,lavere_bedre,pct
+genindlaeggelse,Genindlæggelse,Outcome,lavere_bedre,pct
+ventetid,Ventetid,Proces,lavere_bedre,dage
+tid_til_behandling,Tid til behandling,Proces,lavere_bedre,timer
+behandlingskvalitet,Behandlingskvalitet score,Composite,hoejere_bedre,index_0_100
+patienttilfredshed,Patienttilfredshed,PRO,hoejere_bedre,index_0_100
+registreringsfuldkommenhed,Registreringsfuldkommenhed,Datakvalitet,hoejere_bedre,pct
