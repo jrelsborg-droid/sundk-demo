@@ -1,0 +1,37 @@
+afdeling_id,hospital_id,afdelingstype,afdeling_navn
+h_01_med,h_01,Medicinsk,Med. Afd. Aalborg Universitetshospital
+h_01_kir,h_01,Kirurgisk,Kir. Afd. Aalborg Universitetshospital
+h_02_med,h_02,Medicinsk,Med. Afd. RH Hjørring
+h_02_kir,h_02,Kirurgisk,Kir. Afd. RH Hjørring
+h_03_med,h_03,Medicinsk,Med. Afd. RH Frederikshavn
+h_03_kir,h_03,Kirurgisk,Kir. Afd. RH Frederikshavn
+h_04_med,h_04,Medicinsk,Med. Afd. AUH
+h_04_kir,h_04,Kirurgisk,Kir. Afd. AUH
+h_05_med,h_05,Medicinsk,Med. Afd. RH Gødstrup
+h_05_kir,h_05,Kirurgisk,Kir. Afd. RH Gødstrup
+h_06_med,h_06,Medicinsk,Med. Afd. RH Horsens
+h_06_kir,h_06,Kirurgisk,Kir. Afd. RH Horsens
+h_07_med,h_07,Medicinsk,Med. Afd. HE Midt
+h_07_kir,h_07,Kirurgisk,Kir. Afd. HE Midt
+h_08_med,h_08,Medicinsk,Med. Afd. OUH
+h_08_kir,h_08,Kirurgisk,Kir. Afd. OUH
+h_09_med,h_09,Medicinsk,Med. Afd. Esbjerg Sygehus
+h_09_kir,h_09,Kirurgisk,Kir. Afd. Esbjerg Sygehus
+h_10_med,h_10,Medicinsk,Med. Afd. Sygehus Sønderjylland
+h_10_kir,h_10,Kirurgisk,Kir. Afd. Sygehus Sønderjylland
+h_11_med,h_11,Medicinsk,Med. Afd. Sygehus Lillebælt
+h_11_kir,h_11,Kirurgisk,Kir. Afd. Sygehus Lillebælt
+h_12_med,h_12,Medicinsk,Med. Afd. Holbæk Sygehus
+h_12_kir,h_12,Kirurgisk,Kir. Afd. Holbæk Sygehus
+h_13_med,h_13,Medicinsk,Med. Afd. Næstved Sygehus
+h_13_kir,h_13,Kirurgisk,Kir. Afd. Næstved Sygehus
+h_14_med,h_14,Medicinsk,Med. Afd. SU Roskilde
+h_14_kir,h_14,Kirurgisk,Kir. Afd. SU Roskilde
+h_15_med,h_15,Medicinsk,Med. Afd. Rigshospitalet
+h_15_kir,h_15,Kirurgisk,Kir. Afd. Rigshospitalet
+h_16_med,h_16,Medicinsk,Med. Afd. Herlev Hospital
+h_16_kir,h_16,Kirurgisk,Kir. Afd. Herlev Hospital
+h_17_med,h_17,Medicinsk,Med. Afd. Bispebjerg Hospital
+h_17_kir,h_17,Kirurgisk,Kir. Afd. Bispebjerg Hospital
+h_18_med,h_18,Medicinsk,Med. Afd. Hvidovre Hospital
+h_18_kir,h_18,Kirurgisk,Kir. Afd. Hvidovre Hospital

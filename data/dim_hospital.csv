@@ -1,0 +1,19 @@
+hospital_id,region,hospital_navn
+h_01,Nordjylland,Aalborg Universitetshospital
+h_02,Nordjylland,RH Hjørring
+h_03,Nordjylland,RH Frederikshavn
+h_04,Midtjylland,AUH
+h_05,Midtjylland,RH Gødstrup
+h_06,Midtjylland,RH Horsens
+h_07,Midtjylland,HE Midt
+h_08,Syddanmark,OUH
+h_09,Syddanmark,Esbjerg Sygehus
+h_10,Syddanmark,Sygehus Sønderjylland
+h_11,Syddanmark,Sygehus Lillebælt
+h_12,Sjælland,Holbæk Sygehus
+h_13,Sjælland,Næstved Sygehus
+h_14,Sjælland,SU Roskilde
+h_15,Hovedstaden,Rigshospitalet
+h_16,Hovedstaden,Herlev Hospital
+h_17,Hovedstaden,Bispebjerg Hospital
+h_18,Hovedstaden,Hvidovre Hospital

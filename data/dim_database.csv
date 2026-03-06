@@ -1,0 +1,13 @@
+database_id,database_navn,speciale
+dansk_hjerteinfarkt,Dansk Hjerteinfarktdatabase,Kardiologi
+dansk_hjertesvigt,Dansk Hjertesvigtsdatabase,Kardiologi
+dansk_apopleksi,Dansk Apopleksidatabase,Neurologi
+dansk_hoftefraktur,Dansk Hoftefrakturdatabase,Ortopædkirurgi
+dansk_knaealloplastik,Dansk Knæalloplastikdatabase,Ortopædkirurgi
+dansk_lungecancer,Dansk Lungecancer Database,Onkologi
+dansk_brystkraeft,Dansk Brystkræftdatabase,Onkologi
+dansk_kolorektal,Dansk Kolorektalcancer Database,Kirurgi
+akut,Akutdatabasen,Akutmedicin
+intensiv,Intensivdatabasen,Intensiv
+diabetes,Dansk Diabetesdatabase,Endokrinologi
+psykiatri,Dansk Psykiatridatabase,Psykiatri
