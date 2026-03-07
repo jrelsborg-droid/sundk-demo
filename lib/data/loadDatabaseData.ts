@@ -30,42 +30,7 @@ type AfdelingDimRow = {
   hospital_id: string;
 };
 
-type HospitalAggregatRow = {
-  database_id: string;
-  indikator_id: string;
-  hospital_id: string;
-  aar: number;
-  vaerdi: number;
-  enhed: string;
-  retning: Retning;
-  metodebrud_flag: boolean;
-  antal_forloeb: number;
-  ci_nedre: number;
-  ci_oevre: number;
-  vaerdi_baseline: number;
-  forbedring_siden_baseline: number;
-  rang_hospital: number;
-};
-
-type MaalepunktRow = {
-  database_id: string;
-  indikator_id: string;
-  hospital_id: string;
-  afdeling_id: string;
-  aar: number;
-  vaerdi: number;
-  enhed: string;
-  retning: Retning;
-  metodebrud_flag: boolean;
-  antal_forloeb: number;
-  ci_nedre: number;
-  ci_oevre: number;
-  vaerdi_baseline: number;
-  forbedring_siden_baseline: number;
-  rang_afdeling: number;
-};
-
-export type DatabaseIndicatorOption = {
+type DatabaseIndicatorOption = {
   indikator_id: string;
   indikator_navn: string;
   indikator_type: string;
@@ -73,16 +38,42 @@ export type DatabaseIndicatorOption = {
   retning: Retning;
 };
 
-export type DatabaseTrendPoint = {
+type TrendPoint = {
   aar: number;
   vaerdi: number;
 };
 
-export type DatabaseHospitalRow = {
+type BenchmarkRow = {
+  id: string;
+  navn: string;
+  region: string;
+  vaerdi: number;
+  rang: number;
+};
+
+type MovementRow = {
+  id: string;
+  navn: string;
+  region: string;
+  forbedring: number;
+  rang: number;
+};
+
+type QuadrantRow = {
+  id: string;
+  navn: string;
+  region: string;
+  vaerdi: number;
+  forbedring: number;
+  rang: number;
+  enhed: string;
+  retning: Retning;
+};
+
+type HospitalPerformanceRow = {
   hospital_id: string;
   hospital_navn: string;
   region: string;
-  aar: number;
   vaerdi: number;
   forbedring: number;
   antal_forloeb: number;
@@ -91,19 +82,14 @@ export type DatabaseHospitalRow = {
   retning: Retning;
 };
 
-export type DatabaseDepartmentRow = {
+type VariationDepartmentRow = {
   afdeling_id: string;
   afdeling_navn: string;
-  hospital_id: string;
   hospital_navn: string;
   region: string;
-  aar: number;
   vaerdi: number;
-  forbedring: number;
-  antal_forloeb: number;
-  rang: number;
-  enhed: string;
-  retning: Retning;
+  ci_nedre: number;
+  ci_oevre: number;
 };
 
 export type DatabasePageData = {
@@ -114,10 +100,25 @@ export type DatabasePageData = {
   };
   indikatorer: DatabaseIndicatorOption[];
   selectedIndikator: DatabaseIndicatorOption;
-  senesteAar: number;
-  trend: DatabaseTrendPoint[];
-  hospitalRows: DatabaseHospitalRow[];
-  departmentRows: DatabaseDepartmentRow[];
+  selectedYear: number;
+  availableYears: number[];
+
+  benchmarkTop3: BenchmarkRow[];
+  benchmarkWinner: BenchmarkRow | null;
+
+  movementTop3: MovementRow[];
+  movementWinner: MovementRow | null;
+
+  variationValue: number;
+  variationMin: number;
+  variationMax: number;
+
+  trendNational: TrendPoint[];
+  quadrantRows: QuadrantRow[];
+  hospitalPerformanceRows: HospitalPerformanceRow[];
+  variationDepartments: VariationDepartmentRow[];
+
+  indikatorCards: DatabaseIndicatorOption[];
 };
 
 function parseNumber(v: unknown): number {
@@ -152,9 +153,37 @@ function readCsv<T extends Record<string, string>>(fileName: string): T[] {
   return parsed.data ?? [];
 }
 
+function getText(
+  row: Record<string, string>,
+  candidates: string[],
+  fallback = ""
+): string {
+  for (const key of candidates) {
+    const value = row[key];
+    if (value !== undefined && String(value).trim() !== "") {
+      return String(value).trim();
+    }
+  }
+  return fallback;
+}
+
+function getNumber(
+  row: Record<string, string>,
+  candidates: string[],
+  fallback = NaN
+): number {
+  for (const key of candidates) {
+    const value = row[key];
+    const parsed = parseNumber(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
 export function loadDatabaseData(
   databaseId: string,
-  indikatorId?: string
+  indikatorId?: string,
+  year?: number
 ): DatabasePageData {
   const databaseCsv = readCsv<Record<string, string>>("dim_database.csv");
   const indikatorCsv = readCsv<Record<string, string>>("dim_indikator.csv");
@@ -189,56 +218,59 @@ export function loadDatabaseData(
     hospital_id: r.hospital_id,
   }));
 
-  const hospitalAggregat: HospitalAggregatRow[] = hospitalAggregatCsv.map((r) => ({
-    database_id: r.database_id,
-    indikator_id: r.indikator_id,
-    hospital_id: r.hospital_id,
-    aar: parseNumber(r.aar),
-    vaerdi: parseNumber(r.vaerdi),
-    enhed: r.enhed,
-    retning: parseRetning(r.retning),
-    metodebrud_flag: parseBool(r.metodebrud_flag),
-    antal_forloeb: parseNumber(r.antal_forloeb),
-    ci_nedre: parseNumber(r.ci_nedre),
-    ci_oevre: parseNumber(r.ci_oevre),
-    vaerdi_baseline: parseNumber(r.vaerdi_baseline),
-    forbedring_siden_baseline: parseNumber(r.forbedring_siden_baseline),
-    rang_hospital: parseNumber(r.rang_hospital),
-  }));
-
-  const maalepunkter: MaalepunktRow[] = maalepunktCsv.map((r) => ({
-    database_id: r.database_id,
-    indikator_id: r.indikator_id,
-    hospital_id: r.hospital_id,
-    afdeling_id: r.afdeling_id,
-    aar: parseNumber(r.aar),
-    vaerdi: parseNumber(r.vaerdi),
-    enhed: r.enhed,
-    retning: parseRetning(r.retning),
-    metodebrud_flag: parseBool(r.metodebrud_flag),
-    antal_forloeb: parseNumber(r.antal_forloeb),
-    ci_nedre: parseNumber(r.ci_nedre),
-    ci_oevre: parseNumber(r.ci_oevre),
-    vaerdi_baseline: parseNumber(r.vaerdi_baseline),
-    forbedring_siden_baseline: parseNumber(r.forbedring_siden_baseline),
-    rang_afdeling: parseNumber(r.rang_afdeling),
-  }));
-
-  const database =
-    databases.find((d) => d.database_id === databaseId) ?? null;
-
+  const database = databases.find((d) => d.database_id === databaseId);
   if (!database) {
     throw new Error(`Ukendt database_id: ${databaseId}`);
   }
 
-  const indikatorIdsForDatabase = new Set(
-    hospitalAggregat
-      .filter((r) => r.database_id === databaseId)
-      .map((r) => r.indikator_id)
-  );
+  const hospitalMap = new Map(hospitals.map((h) => [h.hospital_id, h]));
+  const afdelingMap = new Map(afdelinger.map((a) => [a.afdeling_id, a]));
 
+  const aggregatRows = hospitalAggregatCsv
+    .filter((r) => r.database_id === databaseId)
+    .map((r) => ({
+      database_id: r.database_id,
+      indikator_id: r.indikator_id,
+      hospital_id: getText(r, ["hospital_id"]),
+      aar: getNumber(r, ["aar"]),
+      vaerdi: getNumber(r, ["vaerdi", "vaerdi_hospital"]),
+      enhed: getText(r, ["enhed"]),
+      retning: parseRetning(getText(r, ["retning"])),
+      metodebrud_flag: parseBool(getText(r, ["metodebrud_flag"], "false")),
+      antal_forloeb: getNumber(r, ["antal_forloeb", "antal_forloeb_hospital"]),
+      ci_nedre: getNumber(r, ["ci_nedre", "ci_nedre_hospital"]),
+      ci_oevre: getNumber(r, ["ci_oevre", "ci_oevre_hospital"]),
+      vaerdi_baseline: getNumber(r, ["vaerdi_baseline", "vaerdi_baseline_hospital"]),
+      forbedring_siden_baseline: getNumber(r, [
+        "forbedring_siden_baseline",
+        "forbedring_siden_baseline_hospital",
+      ]),
+      rang_hospital: getNumber(r, ["rang_hospital"]),
+    }));
+
+  const departmentRowsRaw = maalepunktCsv
+    .filter((r) => r.database_id === databaseId)
+    .map((r) => ({
+      database_id: r.database_id,
+      indikator_id: r.indikator_id,
+      hospital_id: getText(r, ["hospital_id"]),
+      afdeling_id: getText(r, ["afdeling_id"]),
+      aar: getNumber(r, ["aar"]),
+      vaerdi: getNumber(r, ["vaerdi"]),
+      enhed: getText(r, ["enhed"]),
+      retning: parseRetning(getText(r, ["retning"])),
+      metodebrud_flag: parseBool(getText(r, ["metodebrud_flag"], "false")),
+      antal_forloeb: getNumber(r, ["antal_forloeb"]),
+      ci_nedre: getNumber(r, ["ci_nedre"]),
+      ci_oevre: getNumber(r, ["ci_oevre"]),
+      vaerdi_baseline: getNumber(r, ["vaerdi_baseline"]),
+      forbedring_siden_baseline: getNumber(r, ["forbedring_siden_baseline"]),
+      rang_afdeling: getNumber(r, ["rang_afdeling"]),
+    }));
+
+  const indikatorIds = new Set(aggregatRows.map((r) => r.indikator_id));
   const indikatorer: DatabaseIndicatorOption[] = indikators
-    .filter((i) => indikatorIdsForDatabase.has(i.indikator_id))
+    .filter((i) => indikatorIds.has(i.indikator_id))
     .sort((a, b) => a.indikator_navn.localeCompare(b.indikator_navn, "da"))
     .map((i) => ({
       indikator_id: i.indikator_id,
@@ -257,57 +289,115 @@ export function loadDatabaseData(
     indikatorer.find((i) => i.indikator_id === "mort_30d") ??
     indikatorer[0];
 
-  const rowsForDatabaseAndIndikator = hospitalAggregat.filter(
-    (r) =>
-      r.database_id === databaseId &&
-      r.indikator_id === selectedIndikator.indikator_id
+  const rowsForIndicator = aggregatRows.filter(
+    (r) => r.indikator_id === selectedIndikator.indikator_id
   );
 
-  const senesteAar = Math.max(
-    ...rowsForDatabaseAndIndikator.map((r) => r.aar).filter(Number.isFinite)
-  );
+  const availableYears = Array.from(
+    new Set(rowsForIndicator.map((r) => r.aar).filter(Number.isFinite))
+  ).sort((a, b) => a - b);
 
-  const hospitalMap = new Map(
-    hospitals.map((h) => [h.hospital_id, h])
-  );
+  const selectedYear =
+    (year && availableYears.includes(year) ? year : undefined) ??
+    availableYears[availableYears.length - 1];
 
-  const afdelingMap = new Map(
-    afdelinger.map((a) => [a.afdeling_id, a])
-  );
-
-  const trend: DatabaseTrendPoint[] = rowsForDatabaseAndIndikator
-    .filter((r) => Number.isFinite(r.aar) && Number.isFinite(r.vaerdi))
-    .sort((a, b) => a.aar - b.aar)
-    .map((r) => ({
-      aar: r.aar,
-      vaerdi: r.vaerdi,
-    }));
-
-  const hospitalRows: DatabaseHospitalRow[] = rowsForDatabaseAndIndikator
-    .filter((r) => r.aar === senesteAar)
+  const latestRows = rowsForIndicator
+    .filter((r) => r.aar === selectedYear)
     .map((r) => {
       const hospital = hospitalMap.get(r.hospital_id);
       return {
-        hospital_id: r.hospital_id,
+        ...r,
         hospital_navn: hospital?.hospital_navn ?? r.hospital_id,
         region: hospital?.region ?? "",
-        aar: r.aar,
-        vaerdi: r.vaerdi,
-        forbedring: r.forbedring_siden_baseline,
-        antal_forloeb: r.antal_forloeb,
-        rang: r.rang_hospital,
-        enhed: selectedIndikator.enhed,
-        retning: selectedIndikator.retning,
       };
     })
-    .sort((a, b) => a.rang - b.rang);
+    .filter((r) => Number.isFinite(r.vaerdi));
 
-  const departmentRows: DatabaseDepartmentRow[] = maalepunkter
+  const benchmarkTop3: BenchmarkRow[] = [...latestRows]
+    .sort((a, b) => a.rang_hospital - b.rang_hospital)
+    .slice(0, 3)
+    .map((r) => ({
+      id: r.hospital_id,
+      navn: r.hospital_navn,
+      region: r.region,
+      vaerdi: r.vaerdi,
+      rang: r.rang_hospital,
+    }));
+
+  const benchmarkWinner = benchmarkTop3[0] ?? null;
+
+  const movementTop3: MovementRow[] = [...latestRows]
+    .sort((a, b) => {
+      const aScore =
+        a.retning === "lavere_bedre"
+          ? -a.forbedring_siden_baseline
+          : a.forbedring_siden_baseline;
+      const bScore =
+        b.retning === "lavere_bedre"
+          ? -b.forbedring_siden_baseline
+          : b.forbedring_siden_baseline;
+      return bScore - aScore;
+    })
+    .slice(0, 3)
+    .map((r, index) => ({
+      id: r.hospital_id,
+      navn: r.hospital_navn,
+      region: r.region,
+      forbedring: r.forbedring_siden_baseline,
+      rang: index + 1,
+    }));
+
+  const movementWinner = movementTop3[0] ?? null;
+
+  const valueSeries = latestRows.map((r) => r.vaerdi).filter(Number.isFinite);
+  const variationMin = valueSeries.length ? Math.min(...valueSeries) : 0;
+  const variationMax = valueSeries.length ? Math.max(...valueSeries) : 0;
+  const variationValue = variationMax - variationMin;
+
+  const trendNational: TrendPoint[] = availableYears.map((aar) => {
+    const yearRows = rowsForIndicator.filter((r) => r.aar === aar && Number.isFinite(r.vaerdi));
+    const avg =
+      yearRows.reduce((sum, r) => sum + r.vaerdi, 0) / (yearRows.length || 1);
+
+    return {
+      aar,
+      vaerdi: avg,
+    };
+  });
+
+  const quadrantRows: QuadrantRow[] = [...latestRows]
+    .sort((a, b) => a.rang_hospital - b.rang_hospital)
+    .map((r) => ({
+      id: r.hospital_id,
+      navn: r.hospital_navn,
+      region: r.region,
+      vaerdi: r.vaerdi,
+      forbedring: r.forbedring_siden_baseline,
+      rang: r.rang_hospital,
+      enhed: selectedIndikator.enhed,
+      retning: selectedIndikator.retning,
+    }));
+
+  const hospitalPerformanceRows: HospitalPerformanceRow[] = [...latestRows]
+    .sort((a, b) => a.rang_hospital - b.rang_hospital)
+    .map((r) => ({
+      hospital_id: r.hospital_id,
+      hospital_navn: r.hospital_navn,
+      region: r.region,
+      vaerdi: r.vaerdi,
+      forbedring: r.forbedring_siden_baseline,
+      antal_forloeb: r.antal_forloeb,
+      rang: r.rang_hospital,
+      enhed: selectedIndikator.enhed,
+      retning: selectedIndikator.retning,
+    }));
+
+  const variationDepartments: VariationDepartmentRow[] = departmentRowsRaw
     .filter(
       (r) =>
-        r.database_id === databaseId &&
         r.indikator_id === selectedIndikator.indikator_id &&
-        r.aar === senesteAar
+        r.aar === selectedYear &&
+        Number.isFinite(r.vaerdi)
     )
     .map((r) => {
       const afdeling = afdelingMap.get(r.afdeling_id);
@@ -315,27 +405,33 @@ export function loadDatabaseData(
       return {
         afdeling_id: r.afdeling_id,
         afdeling_navn: afdeling?.afdeling_navn ?? r.afdeling_id,
-        hospital_id: r.hospital_id,
         hospital_navn: hospital?.hospital_navn ?? r.hospital_id,
         region: hospital?.region ?? "",
-        aar: r.aar,
         vaerdi: r.vaerdi,
-        forbedring: r.forbedring_siden_baseline,
-        antal_forloeb: r.antal_forloeb,
-        rang: r.rang_afdeling,
-        enhed: selectedIndikator.enhed,
-        retning: selectedIndikator.retning,
+        ci_nedre: r.ci_nedre,
+        ci_oevre: r.ci_oevre,
       };
     })
-    .sort((a, b) => a.rang - b.rang);
+    .sort((a, b) => a.vaerdi - b.vaerdi)
+    .slice(0, 12);
 
   return {
     database,
     indikatorer,
     selectedIndikator,
-    senesteAar,
-    trend,
-    hospitalRows,
-    departmentRows,
+    selectedYear,
+    availableYears,
+    benchmarkTop3,
+    benchmarkWinner,
+    movementTop3,
+    movementWinner,
+    variationValue,
+    variationMin,
+    variationMax,
+    trendNational,
+    quadrantRows,
+    hospitalPerformanceRows,
+    variationDepartments,
+    indikatorCards: indikatorer,
   };
 }
