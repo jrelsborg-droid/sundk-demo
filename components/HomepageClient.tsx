@@ -16,6 +16,7 @@ type LevelRow = {
   rang: number;
   enhed: string;
   retning: "lavere_bedre" | "hoejere_bedre";
+  typeLabel: "Hospital" | "Afdeling";
 };
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -71,21 +72,6 @@ function improvementExplanation(retning: "lavere_bedre" | "hoejere_bedre") {
   return retning === "lavere_bedre"
     ? "Bedre = lavere niveau end i 2018"
     : "Bedre = højere niveau end i 2018";
-}
-
-function StatPill({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-full border border-slate-200/80 bg-white/80 px-3 py-1.5 text-xs text-slate-600 shadow-sm backdrop-blur">
-      <span className="font-medium text-slate-500">{label}</span>{" "}
-      <span className="font-semibold text-slate-800">{value}</span>
-    </div>
-  );
 }
 
 function SectionIntro({
@@ -516,26 +502,6 @@ export default function HomepageClient({
   );
 
   const selectedIndicatorName = selectedIndicator?.indikator_navn ?? selectedIndikatorId;
-  const unit = formatUnit(hospitalView[0]?.enhed ?? selectedIndicator?.enhed ?? "");
-  const best = [...hospitalView].sort((a, b) => a.rang_hospital - b.rang_hospital)[0];
-  const top3 = [...hospitalView].sort((a, b) => a.rang_hospital - b.rang_hospital).slice(0, 3);
-
-  const improved3 = [...hospitalView]
-    .sort((a, b) => {
-      const aScore =
-        a.retning === "lavere_bedre"
-          ? -a.forbedring_siden_baseline_hospital
-          : a.forbedring_siden_baseline_hospital;
-      const bScore =
-        b.retning === "lavere_bedre"
-          ? -b.forbedring_siden_baseline_hospital
-          : b.forbedring_siden_baseline_hospital;
-      return bScore - aScore;
-    })
-    .slice(0, 3);
-
-  const vals = hospitalView.map((r) => r.vaerdi_hospital).filter(Number.isFinite);
-  const variation = vals.length ? Math.max(...vals) - Math.min(...vals) : 0;
 
   const kvadrantRows: LevelRow[] =
     kvadrantVisning === "hospital"
@@ -548,6 +514,7 @@ export default function HomepageClient({
           rang: r.rang_hospital,
           enhed: r.enhed,
           retning: r.retning,
+          typeLabel: "Hospital",
         }))
       : afdelingView.map((r) => ({
           id: r.afdeling_id,
@@ -558,7 +525,27 @@ export default function HomepageClient({
           rang: r.rang_afdeling,
           enhed: r.enhed,
           retning: r.retning,
+          typeLabel: "Afdeling",
         }));
+
+  const activeRows = kvadrantRows;
+  const activeTypeLabel = kvadrantVisning === "hospital" ? "hospitaler" : "afdelinger";
+
+  const unit = formatUnit(activeRows[0]?.enhed ?? selectedIndicator?.enhed ?? "");
+
+  const best = [...activeRows].sort((a, b) => a.rang - b.rang)[0];
+  const top3 = [...activeRows].sort((a, b) => a.rang - b.rang).slice(0, 3);
+
+  const improved3 = [...activeRows]
+    .sort((a, b) => {
+      const aScore = a.retning === "lavere_bedre" ? -a.forbedring : a.forbedring;
+      const bScore = b.retning === "lavere_bedre" ? -b.forbedring : b.forbedring;
+      return bScore - aScore;
+    })
+    .slice(0, 3);
+
+  const vals = activeRows.map((r) => r.vaerdi).filter(Number.isFinite);
+  const variation = vals.length ? Math.max(...vals) - Math.min(...vals) : 0;
 
   const hospitalsByRegion = useMemo(() => {
     const map = new Map<string, HospitalDimRow[]>();
@@ -661,22 +648,14 @@ export default function HomepageClient({
               National kvalitetsindsigt
             </div>
             <h1 className="mt-4 text-5xl font-semibold leading-[0.92] tracking-tight text-slate-950 sm:text-6xl">
-              Kvalitet. Niveau.
-              <br />
-              Bevægelse.
+              Offentlig kvalitetsindsigt
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-700">
               70+ kliniske kvalitetsdatabaser. Se hvem der ligger bedst, hvem der flytter
               sig mest, og hvor variationen fortsat er størst.
             </p>
 
-            <div className="mt-7 flex flex-wrap gap-2.5">
-              <StatPill label="Databaser" value="70+" />
-              <StatPill label="Seneste år" value={String(senesteAar)} />
-              <StatPill label="Valgt database" value={selectedDatabase.database_navn} />
-            </div>
-
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-7 flex flex-wrap gap-3">
               <button className="rounded-2xl border border-slate-200 bg-white/88 px-4 py-2.5 text-sm font-medium text-slate-900 shadow-sm transition-colors hover:bg-white">
                 Udforsk klinisk database
               </button>
@@ -735,9 +714,11 @@ export default function HomepageClient({
               </div>
 
               <div className="mt-5">
-                <div className="text-sm font-medium text-slate-600">Bedste samlede niveau</div>
+                <div className="text-sm font-medium text-slate-600">
+                  Bedste samlede niveau blandt {activeTypeLabel}
+                </div>
                 <div className="mt-3 text-[2.2rem] font-semibold leading-none tracking-tight text-slate-950">
-                  {best ? `#1 ${best.hospital_navn}` : "—"}
+                  {best ? `#1 ${best.navn}` : "—"}
                 </div>
                 <div className="mt-2 text-sm text-slate-500">
                   {selectedIndicatorName} · {selectedDatabase.database_navn}
@@ -746,10 +727,10 @@ export default function HomepageClient({
 
               <div className="mt-6 space-y-2.5 border-t border-slate-100 pt-4">
                 {top3.map((r) => (
-                  <div key={r.hospital_id} className="flex items-center justify-between text-sm">
-                    <span className="text-slate-700">{`#${r.rang_hospital} ${r.hospital_navn}`}</span>
+                  <div key={r.id} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-700">{`#${r.rang} ${r.navn}`}</span>
                     <span className="font-semibold text-slate-900">
-                      {r.vaerdi_hospital.toFixed(1)}
+                      {r.vaerdi.toFixed(1)}
                       {unit}
                     </span>
                   </div>
@@ -769,27 +750,23 @@ export default function HomepageClient({
                 <div className="text-sm font-medium text-slate-600">Mest forbedret siden 2018</div>
                 <div className="mt-3 text-[2.2rem] font-semibold leading-none tracking-tight text-slate-950">
                   {improved3[0]
-                    ? formatImprovement(
-                        improved3[0].forbedring_siden_baseline_hospital,
-                        improved3[0].enhed,
-                        improved3[0].retning
-                      )
+                    ? formatImprovement(improved3[0].forbedring, improved3[0].enhed, improved3[0].retning)
                     : "—"}
                 </div>
                 <div className="mt-2 text-sm text-slate-500">
                   {selectedIndicatorName} · {selectedDatabase.database_navn}
                 </div>
                 <div className="mt-2 text-[11px] text-slate-500">
-                  {hospitalView[0] ? improvementExplanation(hospitalView[0].retning) : ""}
+                  {activeRows[0] ? improvementExplanation(activeRows[0].retning) : ""}
                 </div>
               </div>
 
               <div className="mt-6 space-y-2.5 border-t border-slate-100 pt-4">
                 {improved3.map((r, idx) => (
-                  <div key={r.hospital_id} className="flex items-center justify-between text-sm">
-                    <span className="text-slate-700">{`#${idx + 1} ${r.hospital_navn}`}</span>
+                  <div key={r.id} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-700">{`#${idx + 1} ${r.navn}`}</span>
                     <span className="font-semibold text-slate-900">
-                      {formatImprovement(r.forbedring_siden_baseline_hospital, r.enhed, r.retning)}
+                      {formatImprovement(r.forbedring, r.enhed, r.retning)}
                     </span>
                   </div>
                 ))}
@@ -806,7 +783,7 @@ export default function HomepageClient({
 
               <div className="mt-5">
                 <div className="text-sm font-medium text-slate-600">
-                  Største variation mellem hospitaler
+                  Største variation mellem {activeTypeLabel}
                 </div>
                 <div className="mt-3 text-[2.2rem] font-semibold leading-none tracking-tight text-slate-950">
                   {variation.toFixed(1)}
@@ -900,6 +877,122 @@ export default function HomepageClient({
             </GlassCard>
           </div>
         </section>
+
+<section className="mt-16">
+  <SectionIntro
+    eyebrow="Inspiration"
+    title="Inspiration fra klinikken"
+    text="Se hvordan kliniske afdelinger arbejder med kvalitetsforbedringer i praksis — og hvordan data fra kvalitetsdatabaser bruges til at identificere variation, følge udvikling og skabe handling."
+  />
+
+  <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-3">
+
+    {/* FEATURED CASE */}
+    <GlassCard hover accent="emerald" className="lg:col-span-2 overflow-hidden">
+
+      <div className="relative h-64 w-full">
+        <img
+          src="/cases/komplikationer.png"
+          className="h-full w-full object-cover"
+        />
+
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+      </div>
+
+      <div className="p-6">
+        <CardEyebrow tone="emerald">Case</CardEyebrow>
+
+        <div className="mt-3 text-xl font-semibold text-slate-950">
+          Hurtigere opfølgning på komplikationer
+        </div>
+
+        <div className="mt-3 text-base italic text-slate-700">
+          “Vi begyndte at bruge data mere aktivt på vores tavlemøder — og det
+          ændrede faktisk, hvad vi talte om.”
+        </div>
+
+        <div className="mt-3 text-sm leading-6 text-slate-600">
+          En kirurgisk afdeling bruger kvalitetsdata til at følge komplikationer
+          tættere og identificere mønstre tidligere i forløbet. Casen viser,
+          hvordan enkle visninger kan understøtte lokale forbedringstiltag og
+          skabe fælles refleksion i teamet.
+        </div>
+
+        <div className="mt-4 text-sm font-medium text-slate-900">
+          Læs casen →
+        </div>
+      </div>
+    </GlassCard>
+
+
+    {/* CASE 2 */}
+    <GlassCard hover accent="sky" className="overflow-hidden">
+
+      <div className="relative h-40 w-full">
+        <img
+          src="/cases/genindlaeggelser.png"
+          className="h-full w-full object-cover"
+        />
+      </div>
+
+      <div className="p-5">
+        <CardEyebrow tone="sky">Case</CardEyebrow>
+
+        <div className="mt-3 text-lg font-semibold text-slate-950">
+          Bedre overblik over genindlæggelser
+        </div>
+
+        <div className="mt-2 text-sm italic text-slate-700">
+          “Det blev nemmere at se, hvor vi skulle sætte ind.”
+        </div>
+
+        <div className="mt-3 text-sm leading-6 text-slate-600">
+          En medicinsk afdeling kombinerer data om genindlæggelser og
+          patientforløb for at skabe fælles overblik mellem klinikere og
+          ledelse.
+        </div>
+
+        <div className="mt-3 text-sm font-medium text-slate-900">
+          Læs casen →
+        </div>
+      </div>
+    </GlassCard>
+
+
+    {/* CASE 3 */}
+    <GlassCard hover accent="amber" className="overflow-hidden">
+
+      <div className="relative h-40 w-full">
+        <img
+          src="/cases/kvalitetsdata.png"
+          className="h-full w-full object-cover"
+        />
+      </div>
+
+      <div className="p-5">
+        <CardEyebrow tone="amber">Case</CardEyebrow>
+
+        <div className="mt-3 text-lg font-semibold text-slate-950">
+          Kvalitetsdata tættere på hverdagen
+        </div>
+
+        <div className="mt-2 text-sm italic text-slate-700">
+          “Når data er lette at forstå, bliver de også lettere at handle på.”
+        </div>
+
+        <div className="mt-3 text-sm leading-6 text-slate-600">
+          En klinisk enhed arbejder med at gøre kvalitetsdata mere
+          tilgængelige for medarbejderne i hverdagen.
+        </div>
+
+        <div className="mt-3 text-sm font-medium text-slate-900">
+          Læs casen →
+        </div>
+      </div>
+    </GlassCard>
+
+  </div>
+</section>
 
         <section className="mt-14">
           <SectionIntro
