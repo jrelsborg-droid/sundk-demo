@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { loadDatabaseData } from "@/lib/data/loadDatabaseData";
+import DatabaseFilters from "@/components/database/DatabaseFilters";
+import DatabaseQuadrant from "@/components/database/DatabaseQuadrant";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -88,21 +90,6 @@ function CardEyebrow({
   );
 }
 
-function scoreNiveau(
-  row: { vaerdi: number; retning: "lavere_bedre" | "hoejere_bedre" },
-  min: number,
-  max: number
-) {
-  if (max === min) return 50;
-  const raw = ((row.vaerdi - min) / (max - min)) * 100;
-  return row.retning === "lavere_bedre" ? 100 - raw : raw;
-}
-
-function scoreForbedring(v: number, min: number, max: number) {
-  if (max === min) return 50;
-  return ((v - min) / (max - min)) * 100;
-}
-
 function IconTrophy() {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -144,16 +131,30 @@ export default async function DatabasePage({ params, searchParams }: PageProps) 
 
   const data = loadDatabaseData(id, resolvedSearchParams?.indikator, selectedYear);
 
-  const trendMin = Math.min(...data.trendNational.map((p) => p.vaerdi));
-  const trendMax = Math.max(...data.trendNational.map((p) => p.vaerdi));
+  const allTrendValues = [
+    ...data.trendNational.map((p) => p.vaerdi),
+    ...data.hospitalTrends.flatMap((series) => series.points.map((p) => p.vaerdi)),
+  ].filter(Number.isFinite);
+
+  const trendMin = allTrendValues.length ? Math.min(...allTrendValues) : 0;
+  const trendMax = allTrendValues.length ? Math.max(...allTrendValues) : 1;
   const trendRange = trendMax - trendMin || 1;
 
-  const qVals = data.quadrantRows.map((r) => r.vaerdi).filter(Number.isFinite);
-  const qImps = data.quadrantRows.map((r) => r.forbedring).filter(Number.isFinite);
-  const minVal = qVals.length ? Math.min(...qVals) : 0;
-  const maxVal = qVals.length ? Math.max(...qVals) : 0;
-  const minImp = qImps.length ? Math.min(...qImps) : 0;
-  const maxImp = qImps.length ? Math.max(...qImps) : 0;
+  const trendColors = [
+    "rgb(56 189 248)",
+    "rgb(245 158 11)",
+    "rgb(168 85 247)",
+    "rgb(244 63 94)",
+    "rgb(16 185 129)",
+  ];
+
+  const variationScaleMin = Math.min(
+    ...data.variationDepartments.map((d) => d.ci_nedre)
+  );
+  const variationScaleMax = Math.max(
+    ...data.variationDepartments.map((d) => d.ci_oevre)
+  );
+  const variationScaleRange = variationScaleMax - variationScaleMin || 1;
 
   return (
     <main className="relative min-h-screen bg-slate-50/80 text-slate-900">
@@ -178,55 +179,41 @@ export default async function DatabasePage({ params, searchParams }: PageProps) 
                 {data.database.database_navn}
               </h1>
               <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-700">
-                {data.database.database_navn} samler og belyser kvalitetsdata på tværs af
-                hospitaler og afdelinger. Udforsk indikatorer, variation, udvikling og
-                forbedring i databasen.
+                {data.database.database_navn} giver overblik over kvalitet, variation,
+                udvikling og forbedring på tværs af hospitaler og afdelinger.
               </p>
+
+              <div className="mt-5 flex flex-wrap gap-2.5">
+                <div className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs text-slate-600 shadow-sm">
+                  <span className="font-medium text-slate-500">Speciale</span>{" "}
+                  <span className="font-semibold text-slate-800">
+                    {data.database.speciale}
+                  </span>
+                </div>
+                <div className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs text-slate-600 shadow-sm">
+                  <span className="font-medium text-slate-500">Indikatorer</span>{" "}
+                  <span className="font-semibold text-slate-800">
+                    {data.indikatorer.length}
+                  </span>
+                </div>
+                <div className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs text-slate-600 shadow-sm">
+                  <span className="font-medium text-slate-500">Periode</span>{" "}
+                  <span className="font-semibold text-slate-800">
+                    {data.periodStart}–{data.periodEnd}
+                  </span>
+                </div>
+              </div>
             </div>
 
-<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-  <form className="flex gap-2">
-    <input type="hidden" name="aar" value={data.selectedYear} />
-    <select
-      name="indikator"
-      defaultValue={data.selectedIndikator.indikator_id}
-      className="w-full rounded-2xl border border-slate-200 bg-white/85 px-4 py-3 text-sm text-slate-800 shadow-sm outline-none backdrop-blur"
-    >
-      {data.indikatorer.map((ind) => (
-        <option key={ind.indikator_id} value={ind.indikator_id}>
-          {ind.indikator_navn}
-        </option>
-      ))}
-    </select>
-    <button
-      type="submit"
-      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-    >
-      Vis
-    </button>
-  </form>
-
-  <form className="flex gap-2">
-    <input type="hidden" name="indikator" value={data.selectedIndikator.indikator_id} />
-    <select
-      name="aar"
-      defaultValue={String(data.selectedYear)}
-      className="w-full rounded-2xl border border-slate-200 bg-white/85 px-4 py-3 text-sm text-slate-800 shadow-sm outline-none backdrop-blur"
-    >
-      {data.availableYears.map((aar) => (
-        <option key={aar} value={aar}>
-          {aar}
-        </option>
-      ))}
-    </select>
-    <button
-      type="submit"
-      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-    >
-      Vis
-    </button>
-  </form>
-</div>
+            <DatabaseFilters
+              indikatorer={data.indikatorer.map((i) => ({
+                indikator_id: i.indikator_id,
+                indikator_navn: i.indikator_navn,
+              }))}
+              selectedIndikatorId={data.selectedIndikator.indikator_id}
+              availableYears={data.availableYears}
+              selectedYear={data.selectedYear}
+            />
           </div>
         </section>
 
@@ -240,7 +227,9 @@ export default async function DatabasePage({ params, searchParams }: PageProps) 
             </div>
 
             <div className="mt-5">
-              <div className="text-sm font-medium text-slate-600">Bedste niveau</div>
+              <div className="text-sm font-medium text-slate-600">
+                Bedste niveau i {data.selectedYear}
+              </div>
               <div className="mt-3 text-[2.2rem] font-semibold leading-none tracking-tight text-slate-950">
                 {data.benchmarkWinner ? `#1 ${data.benchmarkWinner.navn}` : "—"}
               </div>
@@ -271,7 +260,9 @@ export default async function DatabasePage({ params, searchParams }: PageProps) 
             </div>
 
             <div className="mt-5">
-              <div className="text-sm font-medium text-slate-600">Største forbedring</div>
+              <div className="text-sm font-medium text-slate-600">
+                Største forbedring siden baseline
+              </div>
               <div className="mt-3 text-[2.2rem] font-semibold leading-none tracking-tight text-slate-950">
                 {data.movementWinner
                   ? formatImprovement(
@@ -311,7 +302,9 @@ export default async function DatabasePage({ params, searchParams }: PageProps) 
             </div>
 
             <div className="mt-5">
-              <div className="text-sm font-medium text-slate-600">Største variation</div>
+              <div className="text-sm font-medium text-slate-600">
+                Spænd mellem hospitaler i {data.selectedYear}
+              </div>
               <div className="mt-3 text-[2.2rem] font-semibold leading-none tracking-tight text-slate-950">
                 {data.variationValue.toFixed(1)}
                 {formatUnit(data.selectedIndikator.enhed)}
@@ -321,14 +314,22 @@ export default async function DatabasePage({ params, searchParams }: PageProps) 
 
             <div className="mt-6 space-y-3 border-t border-slate-100 pt-4 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-slate-500">Indikator</span>
+                <span className="text-slate-500">Min</span>
                 <span className="font-semibold text-slate-900">
-                  {data.selectedIndikator.indikator_navn}
+                  {data.variationMin.toFixed(1)}
+                  {formatUnit(data.selectedIndikator.enhed)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-500">År</span>
-                <span className="font-semibold text-slate-900">{data.selectedYear}</span>
+                <span className="text-slate-500">Max</span>
+                <span className="font-semibold text-slate-900">
+                  {data.variationMax.toFixed(1)}
+                  {formatUnit(data.selectedIndikator.enhed)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Hospitaler</span>
+                <span className="font-semibold text-slate-900">{data.hospitalCount}</span>
               </div>
             </div>
           </GlassCard>
@@ -342,7 +343,7 @@ export default async function DatabasePage({ params, searchParams }: PageProps) 
                   Udvikling i indikator over tid
                 </div>
                 <div className="mt-2 text-sm leading-6 text-slate-600">
-                  National gennemsnitsudvikling for den valgte indikator i databasen.
+                  Nationalt gennemsnit og udvalgte hospitaler for den valgte indikator.
                 </div>
               </div>
               <CardEyebrow tone="sky">Trend</CardEyebrow>
@@ -350,23 +351,49 @@ export default async function DatabasePage({ params, searchParams }: PageProps) 
 
             <div className="mt-6 rounded-[24px] border border-slate-200 bg-white/60 p-4">
               <div className="relative h-[320px]">
-                <div className="absolute inset-0 grid grid-cols-8 grid-rows-6">
-                  {Array.from({ length: 48 }).map((_, i) => (
+                <div className="absolute inset-0 grid grid-cols-10 grid-rows-6">
+                  {Array.from({ length: 60 }).map((_, i) => (
                     <div key={i} className="border border-slate-100/80" />
                   ))}
                 </div>
 
-                <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <svg
+                  className="absolute inset-0 h-full w-full"
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                >
+                  {data.hospitalTrends.map((series, seriesIndex) => (
+                    <polyline
+                      key={series.hospital_id}
+                      fill="none"
+                      stroke={trendColors[(seriesIndex + 1) % trendColors.length]}
+                      strokeWidth="1.5"
+                      opacity="0.75"
+                      points={series.points
+                        .map((p) => {
+                          const x =
+                            data.availableYears.length === 1
+                              ? 50
+                              : ((p.aar - data.periodStart) / (data.periodEnd - data.periodStart || 1)) *
+                                100;
+                          const y = 100 - ((p.vaerdi - trendMin) / trendRange) * 80 - 10;
+                          return `${x},${y}`;
+                        })
+                        .join(" ")}
+                    />
+                  ))}
+
                   <polyline
                     fill="none"
-                    stroke="rgb(56 189 248)"
-                    strokeWidth="2.4"
+                    stroke={trendColors[0]}
+                    strokeWidth="2.8"
                     points={data.trendNational
-                      .map((p, index) => {
+                      .map((p) => {
                         const x =
-                          data.trendNational.length === 1
+                          data.availableYears.length === 1
                             ? 50
-                            : (index / (data.trendNational.length - 1)) * 100;
+                            : ((p.aar - data.periodStart) / (data.periodEnd - data.periodStart || 1)) *
+                              100;
                         const y = 100 - ((p.vaerdi - trendMin) / trendRange) * 80 - 10;
                         return `${x},${y}`;
                       })
@@ -375,10 +402,37 @@ export default async function DatabasePage({ params, searchParams }: PageProps) 
                 </svg>
 
                 <div className="absolute bottom-0 left-0 right-0 flex justify-between px-1 pt-3 text-xs text-slate-500">
-                  {data.trendNational.map((p) => (
-                    <span key={p.aar}>{p.aar}</span>
-                  ))}
+                  {data.availableYears.map((year, index) =>
+                    index % 2 === 0 || index === data.availableYears.length - 1 ? (
+                      <span key={year}>{year}</span>
+                    ) : (
+                      <span key={year} />
+                    )
+                  )}
                 </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-3 text-xs">
+                <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: trendColors[0] }}
+                  />
+                  <span className="font-medium text-slate-700">Nationalt gennemsnit</span>
+                </div>
+
+                {data.hospitalTrends.map((series, index) => (
+                  <div
+                    key={series.hospital_id}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: trendColors[(index + 1) % trendColors.length] }}
+                    />
+                    <span className="font-medium text-slate-700">{series.hospital_navn}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </GlassCard>
@@ -396,40 +450,11 @@ export default async function DatabasePage({ params, searchParams }: PageProps) 
               <CardEyebrow tone="sky">Performance</CardEyebrow>
             </div>
 
-            <div className="mt-6 rounded-[24px] border border-slate-200 bg-white/60 p-4">
-              <div className="relative h-[320px]">
-                <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-slate-300" />
-                <div className="absolute inset-y-0 left-1/2 border-l border-dashed border-slate-300" />
-
-                <div className="absolute left-2 top-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[12px] font-medium text-emerald-700">
-                  Høj kvalitet
-                </div>
-
-                {data.quadrantRows.slice(0, 12).map((p) => {
-                  const x = scoreForbedring(p.forbedring, minImp, maxImp);
-                  const y = scoreNiveau(p, minVal, maxVal);
-
-                  return (
-                    <div
-                      key={p.id}
-                      className="absolute h-5 w-5 rounded-full border border-sky-500/60 bg-sky-400/75"
-                      style={{
-                        left: `${x}%`,
-                        bottom: `${y}%`,
-                        transform: "translate(-50%, 50%)",
-                      }}
-                      title={`${p.navn}: ${p.vaerdi.toFixed(1)}${formatUnit(p.enhed)}`}
-                    />
-                  );
-                })}
-
-                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs text-slate-500">
-                  Forbedring siden baseline
-                </div>
-                <div className="absolute left-1 top-1/2 -translate-y-1/2 -rotate-90 text-xs text-slate-500">
-                  Nuværende niveau
-                </div>
-              </div>
+            <div className="mt-6">
+              <DatabaseQuadrant
+                rows={data.quadrantRows}
+                indikatorNavn={data.selectedIndikator.indikator_navn}
+              />
             </div>
           </GlassCard>
         </section>
@@ -475,27 +500,60 @@ export default async function DatabasePage({ params, searchParams }: PageProps) 
               Variation på tværs af afdelinger
             </div>
             <div className="mt-2 text-sm leading-6 text-slate-600">
-              Eksempler på afdelingsniveau for den valgte indikator i {data.selectedYear}.
+              Box plot-look med konfidensinterval for udvalgte afdelinger i {data.selectedYear}.
             </div>
 
-            <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
-              <div className="grid grid-cols-12 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <div className="col-span-5">Afdeling</div>
-                <div className="col-span-4">Hospital</div>
-                <div className="col-span-3 text-right">Værdi</div>
-              </div>
+            <div className="mt-5 rounded-[24px] border border-slate-200 bg-white/60 p-4">
+              <div className="space-y-4">
+                {data.variationDepartments.slice(0, 8).map((row) => {
+                  const lineLeft =
+                    ((row.ci_nedre - variationScaleMin) / variationScaleRange) * 100;
+                  const lineRight =
+                    ((row.ci_oevre - variationScaleMin) / variationScaleRange) * 100;
+                  const pointLeft =
+                    ((row.vaerdi - variationScaleMin) / variationScaleRange) * 100;
 
-              <div className="divide-y divide-slate-200">
-                {data.variationDepartments.slice(0, 8).map((row) => (
-                  <div key={row.afdeling_id} className="grid grid-cols-12 px-4 py-3 text-sm">
-                    <div className="col-span-5 text-slate-950">{row.afdeling_navn}</div>
-                    <div className="col-span-4 text-slate-600">{row.hospital_navn}</div>
-                    <div className="col-span-3 text-right font-semibold text-slate-950">
-                      {row.vaerdi.toFixed(1)}
-                      {formatUnit(data.selectedIndikator.enhed)}
+                  return (
+                    <div key={row.afdeling_id} className="grid grid-cols-[1.2fr_2fr] gap-4">
+                      <div>
+                        <div className="text-sm font-medium text-slate-900">
+                          {row.afdeling_navn}
+                        </div>
+                        <div className="text-xs text-slate-500">{row.hospital_navn}</div>
+                      </div>
+
+                      <div className="relative pt-5">
+                        <div className="absolute left-0 right-0 top-1/2 border-t border-dashed border-slate-200" />
+                        <div
+                          className="absolute top-1/2 h-[2px] -translate-y-1/2 bg-slate-400"
+                          style={{
+                            left: `${lineLeft}%`,
+                            width: `${Math.max(lineRight - lineLeft, 1)}%`,
+                          }}
+                        />
+                        <div
+                          className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-rose-500/70 bg-rose-400"
+                          style={{ left: `${pointLeft}%` }}
+                          title={`${row.vaerdi.toFixed(1)}${formatUnit(data.selectedIndikator.enhed)}`}
+                        />
+                        <div className="mt-7 flex justify-between text-[11px] text-slate-500">
+                          <span>
+                            {row.ci_nedre.toFixed(1)}
+                            {formatUnit(data.selectedIndikator.enhed)}
+                          </span>
+                          <span className="font-medium text-slate-700">
+                            {row.vaerdi.toFixed(1)}
+                            {formatUnit(data.selectedIndikator.enhed)}
+                          </span>
+                          <span>
+                            {row.ci_oevre.toFixed(1)}
+                            {formatUnit(data.selectedIndikator.enhed)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -528,13 +586,23 @@ export default async function DatabasePage({ params, searchParams }: PageProps) 
                         : "border-slate-200 bg-white hover:-translate-y-0.5 hover:shadow-md"
                     )}
                   >
-                    <div className={cn("text-sm font-medium", isActive ? "text-slate-200" : "text-slate-500")}>
+                    <div
+                      className={cn(
+                        "text-sm font-medium",
+                        isActive ? "text-slate-200" : "text-slate-500"
+                      )}
+                    >
                       {ind.indikator_type}
                     </div>
                     <div className="mt-3 text-xl font-semibold tracking-tight">
                       {ind.indikator_navn}
                     </div>
-                    <div className={cn("mt-3 text-sm", isActive ? "text-slate-300" : "text-slate-600")}>
+                    <div
+                      className={cn(
+                        "mt-3 text-sm",
+                        isActive ? "text-slate-300" : "text-slate-600"
+                      )}
+                    >
                       {ind.retning === "lavere_bedre" ? "Lavere er bedre" : "Højere er bedre"}
                     </div>
                   </Link>

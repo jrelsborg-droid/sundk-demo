@@ -30,7 +30,7 @@ type AfdelingDimRow = {
   hospital_id: string;
 };
 
-type DatabaseIndicatorOption = {
+export type DatabaseIndicatorOption = {
   indikator_id: string;
   indikator_navn: string;
   indikator_type: string;
@@ -38,9 +38,17 @@ type DatabaseIndicatorOption = {
   retning: Retning;
 };
 
-type TrendPoint = {
+export type TrendPoint = {
   aar: number;
   vaerdi: number;
+};
+
+export type HospitalTrendSeries = {
+  hospital_id: string;
+  hospital_navn: string;
+  region: string;
+  rang: number;
+  points: TrendPoint[];
 };
 
 type BenchmarkRow = {
@@ -102,6 +110,8 @@ export type DatabasePageData = {
   selectedIndikator: DatabaseIndicatorOption;
   selectedYear: number;
   availableYears: number[];
+  periodStart: number;
+  periodEnd: number;
 
   benchmarkTop3: BenchmarkRow[];
   benchmarkWinner: BenchmarkRow | null;
@@ -112,8 +122,10 @@ export type DatabasePageData = {
   variationValue: number;
   variationMin: number;
   variationMax: number;
+  hospitalCount: number;
 
   trendNational: TrendPoint[];
+  hospitalTrends: HospitalTrendSeries[];
   quadrantRows: QuadrantRow[];
   hospitalPerformanceRows: HospitalPerformanceRow[];
   variationDepartments: VariationDepartmentRow[];
@@ -246,7 +258,13 @@ export function loadDatabaseData(
         "forbedring_siden_baseline_hospital",
       ]),
       rang_hospital: getNumber(r, ["rang_hospital"]),
-    }));
+    }))
+    .filter(
+      (r) =>
+        Number.isFinite(r.aar) &&
+        r.hospital_id &&
+        Number.isFinite(r.vaerdi)
+    );
 
   const departmentRowsRaw = maalepunktCsv
     .filter((r) => r.database_id === databaseId)
@@ -266,7 +284,8 @@ export function loadDatabaseData(
       vaerdi_baseline: getNumber(r, ["vaerdi_baseline"]),
       forbedring_siden_baseline: getNumber(r, ["forbedring_siden_baseline"]),
       rang_afdeling: getNumber(r, ["rang_afdeling"]),
-    }));
+    }))
+    .filter((r) => Number.isFinite(r.aar) && r.afdeling_id);
 
   const indikatorIds = new Set(aggregatRows.map((r) => r.indikator_id));
   const indikatorer: DatabaseIndicatorOption[] = indikators
@@ -297,9 +316,18 @@ export function loadDatabaseData(
     new Set(rowsForIndicator.map((r) => r.aar).filter(Number.isFinite))
   ).sort((a, b) => a - b);
 
+  if (!availableYears.length) {
+    throw new Error(
+      `Ingen år fundet for database_id=${databaseId} og indikator=${selectedIndikator.indikator_id}`
+    );
+  }
+
   const selectedYear =
     (year && availableYears.includes(year) ? year : undefined) ??
     availableYears[availableYears.length - 1];
+
+  const periodStart = availableYears[0];
+  const periodEnd = availableYears[availableYears.length - 1];
 
   const latestRows = rowsForIndicator
     .filter((r) => r.aar === selectedYear)
@@ -353,6 +381,7 @@ export function loadDatabaseData(
   const variationMin = valueSeries.length ? Math.min(...valueSeries) : 0;
   const variationMax = valueSeries.length ? Math.max(...valueSeries) : 0;
   const variationValue = variationMax - variationMin;
+  const hospitalCount = latestRows.length;
 
   const trendNational: TrendPoint[] = availableYears.map((aar) => {
     const yearRows = rowsForIndicator.filter((r) => r.aar === aar && Number.isFinite(r.vaerdi));
@@ -364,6 +393,27 @@ export function loadDatabaseData(
       vaerdi: avg,
     };
   });
+
+  const hospitalTrends: HospitalTrendSeries[] = [...latestRows]
+    .sort((a, b) => a.rang_hospital - b.rang_hospital)
+    .slice(0, 4)
+    .map((hospitalRow) => {
+      const points = rowsForIndicator
+        .filter((r) => r.hospital_id === hospitalRow.hospital_id)
+        .sort((a, b) => a.aar - b.aar)
+        .map((r) => ({
+          aar: r.aar,
+          vaerdi: r.vaerdi,
+        }));
+
+      return {
+        hospital_id: hospitalRow.hospital_id,
+        hospital_navn: hospitalRow.hospital_navn,
+        region: hospitalRow.region,
+        rang: hospitalRow.rang_hospital,
+        points,
+      };
+    });
 
   const quadrantRows: QuadrantRow[] = [...latestRows]
     .sort((a, b) => a.rang_hospital - b.rang_hospital)
@@ -397,7 +447,9 @@ export function loadDatabaseData(
       (r) =>
         r.indikator_id === selectedIndikator.indikator_id &&
         r.aar === selectedYear &&
-        Number.isFinite(r.vaerdi)
+        Number.isFinite(r.vaerdi) &&
+        Number.isFinite(r.ci_nedre) &&
+        Number.isFinite(r.ci_oevre)
     )
     .map((r) => {
       const afdeling = afdelingMap.get(r.afdeling_id);
@@ -413,7 +465,7 @@ export function loadDatabaseData(
       };
     })
     .sort((a, b) => a.vaerdi - b.vaerdi)
-    .slice(0, 12);
+    .slice(0, 10);
 
   return {
     database,
@@ -421,6 +473,8 @@ export function loadDatabaseData(
     selectedIndikator,
     selectedYear,
     availableYears,
+    periodStart,
+    periodEnd,
     benchmarkTop3,
     benchmarkWinner,
     movementTop3,
@@ -428,7 +482,9 @@ export function loadDatabaseData(
     variationValue,
     variationMin,
     variationMax,
+    hospitalCount,
     trendNational,
+    hospitalTrends,
     quadrantRows,
     hospitalPerformanceRows,
     variationDepartments,
