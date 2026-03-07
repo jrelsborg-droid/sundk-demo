@@ -5,7 +5,7 @@ import type {
   DatabaseDimRow,
   HomepageData,
   HospitalDimRow,
-} from "@/lib/loadHomepageData";
+} from "@/lib/data/loadHomepageData";
 
 type LevelRow = {
   id: string;

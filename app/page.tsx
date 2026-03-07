@@ -1,4 +1,4 @@
-import { loadHomepageData } from "@/lib/loadHomepageData";
+import { loadHomepageData } from "@/lib/data/loadHomepageData";
 import HomepageClient from "@/components/HomepageClient";
 
 export default function Page() {
