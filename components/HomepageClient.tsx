@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import type {
   DatabaseDimRow,
@@ -161,10 +162,8 @@ function GlassCard({
 
 function MenuDatabases({
   databases,
-  onSelect,
 }: {
   databases: DatabaseDimRow[];
-  onSelect: (id: string) => void;
 }) {
   return (
     <div className="relative group">
@@ -177,13 +176,13 @@ function MenuDatabases({
             .slice()
             .sort((a, b) => a.database_navn.localeCompare(b.database_navn, "da"))
             .map((db) => (
-              <button
+              <Link
                 key={db.database_id}
-                onClick={() => onSelect(db.database_id)}
+                href={`/database/${db.database_id}`}
                 className="block w-full rounded-2xl px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100"
               >
                 {db.database_navn}
-              </button>
+              </Link>
             ))}
         </div>
       </div>
@@ -626,7 +625,7 @@ export default function HomepageClient({
               </div>
 
               <nav className="hidden items-center gap-2 md:flex">
-                <MenuDatabases databases={databases} onSelect={handleSelectDatabase} />
+                <MenuDatabases databases={databases} />
                 <MenuHospitals hospitalsByRegion={hospitalsByRegion} />
                 <MenuDataOgRapporter databases={databases} />
               </nav>
@@ -1010,20 +1009,21 @@ export default function HomepageClient({
               <div className="col-span-1 text-right">Registreringskomplethed</div>
             </div>
 
-            <div className="divide-y divide-slate-200/90">
-              {dbPreview.map((r) => (
-                <div
-                  key={r.database_id}
-                  className="grid grid-cols-12 bg-white/40 px-5 py-4 text-sm transition-colors hover:bg-white/70"
-                >
-                  <div className="col-span-5 font-medium text-slate-950">{r.database_navn}</div>
-                  <div className="col-span-3 text-slate-700">{r.speciale}</div>
-                  <div className="col-span-2 text-slate-700">{r.indikatorer}</div>
-                  <div className="col-span-1 text-slate-700">{r.opdateret}</div>
-                  <div className="col-span-1 text-right font-semibold text-slate-950">{r.drift}</div>
-                </div>
-              ))}
-            </div>
+<div className="divide-y divide-slate-200/90">
+  {dbPreview.map((r) => (
+    <Link
+      key={r.database_id}
+      href={`/database/${r.database_id}`}
+      className="grid grid-cols-12 bg-white/40 px-5 py-4 text-sm transition-colors hover:bg-white/70"
+    >
+      <div className="col-span-5 font-medium text-slate-950">{r.database_navn}</div>
+      <div className="col-span-3 text-slate-700">{r.speciale}</div>
+      <div className="col-span-2 text-slate-700">{r.indikatorer}</div>
+      <div className="col-span-1 text-slate-700">{r.opdateret}</div>
+      <div className="col-span-1 text-right font-semibold text-slate-950">{r.drift}</div>
+    </Link>
+  ))}
+</div>
           </GlassCard>
         </section>
       </div>
