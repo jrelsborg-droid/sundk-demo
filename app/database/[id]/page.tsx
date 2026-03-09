@@ -131,14 +131,25 @@ export default async function DatabasePage({ params, searchParams }: PageProps) 
 
   const data = loadDatabaseData(id, resolvedSearchParams?.indikator, selectedYear);
 
-  const allTrendValues = [
-    ...data.trendNational.map((p) => p.vaerdi),
-    ...data.hospitalTrends.flatMap((series) => series.points.map((p) => p.vaerdi)),
-  ].filter(Number.isFinite);
+const allTrendValues = [
+  ...data.trendNational.map((p) => p.vaerdi),
+  ...(data.hospitalTrends ?? []).flatMap((series) =>
+    series.points.map((p) => p.vaerdi)
+  ),
+].filter(Number.isFinite);
 
-  const trendMin = allTrendValues.length ? Math.min(...allTrendValues) : 0;
-  const trendMax = allTrendValues.length ? Math.max(...allTrendValues) : 1;
-  const trendRange = trendMax - trendMin || 1;
+const rawTrendMin = allTrendValues.length ? Math.min(...allTrendValues) : 0;
+const rawTrendMax = allTrendValues.length ? Math.max(...allTrendValues) : 1;
+
+const padding = (rawTrendMax - rawTrendMin) * 0.08 || 1;
+const trendMin = Math.floor((rawTrendMin - padding) * 10) / 10;
+const trendMax = Math.ceil((rawTrendMax + padding) * 10) / 10;
+const trendRange = trendMax - trendMin || 1;
+
+const yAxisTicks = Array.from({ length: 5 }, (_, i) => {
+  const value = trendMin + (i * trendRange) / 4;
+  return Number(value.toFixed(1));
+}).reverse();
 
   const trendColors = [
     "rgb(56 189 248)",
@@ -169,53 +180,67 @@ export default async function DatabasePage({ params, searchParams }: PageProps) 
       </div>
 
       <div className="relative z-10 mx-auto max-w-7xl px-6 pb-24 pt-12">
-        <section>
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.2fr_0.9fr] lg:items-start">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                Overblik
-              </div>
-              <h1 className="mt-4 text-5xl font-semibold leading-[0.94] tracking-tight text-slate-950 sm:text-6xl">
-                {data.database.database_navn}
-              </h1>
-              <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-700">
-                {data.database.database_navn} giver overblik over kvalitet, variation,
-                udvikling og forbedring på tværs af hospitaler og afdelinger.
-              </p>
+<section>
+  <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1.2fr_0.95fr] lg:items-start">
+    <div className="max-w-3xl">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        Overblik
+      </div>
 
-              <div className="mt-5 flex flex-wrap gap-2.5">
-                <div className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs text-slate-600 shadow-sm">
-                  <span className="font-medium text-slate-500">Speciale</span>{" "}
-                  <span className="font-semibold text-slate-800">
-                    {data.database.speciale}
-                  </span>
-                </div>
-                <div className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs text-slate-600 shadow-sm">
-                  <span className="font-medium text-slate-500">Indikatorer</span>{" "}
-                  <span className="font-semibold text-slate-800">
-                    {data.indikatorer.length}
-                  </span>
-                </div>
-                <div className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs text-slate-600 shadow-sm">
-                  <span className="font-medium text-slate-500">Periode</span>{" "}
-                  <span className="font-semibold text-slate-800">
-                    {data.periodStart}–{data.periodEnd}
-                  </span>
-                </div>
-              </div>
-            </div>
+      <h1 className="mt-4 text-5xl font-semibold leading-[0.92] tracking-tight text-slate-950 sm:text-6xl">
+        {data.database.database_navn}
+      </h1>
 
-            <DatabaseFilters
-              indikatorer={data.indikatorer.map((i) => ({
-                indikator_id: i.indikator_id,
-                indikator_navn: i.indikator_navn,
-              }))}
-              selectedIndikatorId={data.selectedIndikator.indikator_id}
-              availableYears={data.availableYears}
-              selectedYear={data.selectedYear}
-            />
-          </div>
-        </section>
+      <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-700">
+        {data.database.database_navn} giver overblik over kvalitet, variation,
+        udvikling og forbedring på tværs af hospitaler og afdelinger.
+      </p>
+
+      <div className="mt-6 flex flex-wrap gap-2.5">
+        <div className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs text-slate-600 shadow-sm">
+          <span className="font-medium text-slate-500">Speciale</span>{" "}
+          <span className="font-semibold text-slate-800">
+            {data.database.speciale}
+          </span>
+        </div>
+        <div className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs text-slate-600 shadow-sm">
+          <span className="font-medium text-slate-500">Indikatorer</span>{" "}
+          <span className="font-semibold text-slate-800">
+            {data.indikatorer.length}
+          </span>
+        </div>
+        <div className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs text-slate-600 shadow-sm">
+          <span className="font-medium text-slate-500">Periode</span>{" "}
+          <span className="font-semibold text-slate-800">
+            {data.periodStart}–{data.periodEnd}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <GlassCard accent="slate" className="p-5 lg:p-6">
+      <div className="text-sm font-medium text-slate-500">Visning</div>
+      <div className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
+        Vælg indikator og år
+      </div>
+      <div className="mt-2 text-sm leading-6 text-slate-600">
+        Filtrene opdaterer siden automatisk og styrer både kort, grafer og tabeller.
+      </div>
+
+      <div className="mt-5">
+        <DatabaseFilters
+          indikatorer={data.indikatorer.map((i) => ({
+            indikator_id: i.indikator_id,
+            indikator_navn: i.indikator_navn,
+          }))}
+          selectedIndikatorId={data.selectedIndikator.indikator_id}
+          availableYears={data.availableYears}
+          selectedYear={data.selectedYear}
+        />
+      </div>
+    </GlassCard>
+  </div>
+</section>
 
         <section className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-3">
           <GlassCard accent="amber" className="p-6">
@@ -336,106 +361,125 @@ export default async function DatabasePage({ params, searchParams }: PageProps) 
         </section>
 
         <section className="mt-12 grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-          <GlassCard accent="sky" className="p-6">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <div className="text-2xl font-semibold tracking-tight text-slate-950">
-                  Udvikling i indikator over tid
-                </div>
-                <div className="mt-2 text-sm leading-6 text-slate-600">
-                  Nationalt gennemsnit og udvalgte hospitaler for den valgte indikator.
-                </div>
-              </div>
-              <CardEyebrow tone="sky">Trend</CardEyebrow>
-            </div>
+ <GlassCard accent="sky" className="p-6">
+  <div className="flex items-center justify-between gap-4">
+    <div>
+      <div className="text-2xl font-semibold tracking-tight text-slate-950">
+        Udvikling i indikator over tid
+      </div>
+      <div className="mt-2 text-sm leading-6 text-slate-600">
+        Nationalt gennemsnit og udvalgte hospitaler for den valgte indikator.
+      </div>
+    </div>
+    <CardEyebrow tone="sky">Trend</CardEyebrow>
+  </div>
 
-            <div className="mt-6 rounded-[24px] border border-slate-200 bg-white/60 p-4">
-              <div className="relative h-[320px]">
-                <div className="absolute inset-0 grid grid-cols-10 grid-rows-6">
-                  {Array.from({ length: 60 }).map((_, i) => (
-                    <div key={i} className="border border-slate-100/80" />
-                  ))}
-                </div>
+  <div className="mt-6 rounded-[24px] border border-slate-200 bg-white/60 p-5">
+    <div className="grid grid-cols-[56px_1fr] gap-4">
+      <div className="relative h-[320px]">
+        {yAxisTicks.map((tick, index) => (
+          <div
+            key={tick}
+            className="absolute left-0 right-0 text-right text-xs text-slate-500"
+            style={{ top: `${(index / (yAxisTicks.length - 1)) * 100}%`, transform: "translateY(-50%)" }}
+          >
+            {tick.toFixed(1)}
+            {formatUnit(data.selectedIndikator.enhed)}
+          </div>
+        ))}
+      </div>
 
-                <svg
-                  className="absolute inset-0 h-full w-full"
-                  viewBox="0 0 100 100"
-                  preserveAspectRatio="none"
-                >
-                  {data.hospitalTrends.map((series, seriesIndex) => (
-                    <polyline
-                      key={series.hospital_id}
-                      fill="none"
-                      stroke={trendColors[(seriesIndex + 1) % trendColors.length]}
-                      strokeWidth="1.5"
-                      opacity="0.75"
-                      points={series.points
-                        .map((p) => {
-                          const x =
-                            data.availableYears.length === 1
-                              ? 50
-                              : ((p.aar - data.periodStart) / (data.periodEnd - data.periodStart || 1)) *
-                                100;
-                          const y = 100 - ((p.vaerdi - trendMin) / trendRange) * 80 - 10;
-                          return `${x},${y}`;
-                        })
-                        .join(" ")}
-                    />
-                  ))}
+      <div>
+        <div className="relative h-[320px]">
+          <div className="absolute inset-0 grid grid-cols-10 grid-rows-5">
+            {Array.from({ length: 50 }).map((_, i) => (
+              <div key={i} className="border border-slate-100/70" />
+            ))}
+          </div>
 
-                  <polyline
-                    fill="none"
-                    stroke={trendColors[0]}
-                    strokeWidth="2.8"
-                    points={data.trendNational
-                      .map((p) => {
-                        const x =
-                          data.availableYears.length === 1
-                            ? 50
-                            : ((p.aar - data.periodStart) / (data.periodEnd - data.periodStart || 1)) *
-                              100;
-                        const y = 100 - ((p.vaerdi - trendMin) / trendRange) * 80 - 10;
-                        return `${x},${y}`;
-                      })
-                      .join(" ")}
-                  />
-                </svg>
+          <svg
+            className="absolute inset-0 h-full w-full"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+            {(data.hospitalTrends ?? []).map((series, seriesIndex) => (
+              <polyline
+                key={series.hospital_id}
+                fill="none"
+                stroke={trendColors[(seriesIndex + 1) % trendColors.length]}
+                strokeWidth="1.5"
+                opacity="0.72"
+                points={series.points
+                  .map((p) => {
+                    const x =
+                      data.availableYears.length === 1
+                        ? 50
+                        : ((p.aar - data.periodStart) /
+                            (data.periodEnd - data.periodStart || 1)) *
+                          100;
+                    const y = 100 - ((p.vaerdi - trendMin) / trendRange) * 84 - 8;
+                    return `${x},${y}`;
+                  })
+                  .join(" ")}
+              />
+            ))}
 
-                <div className="absolute bottom-0 left-0 right-0 flex justify-between px-1 pt-3 text-xs text-slate-500">
-                  {data.availableYears.map((year, index) =>
-                    index % 2 === 0 || index === data.availableYears.length - 1 ? (
-                      <span key={year}>{year}</span>
-                    ) : (
-                      <span key={year} />
-                    )
-                  )}
-                </div>
-              </div>
+            <polyline
+              fill="none"
+              stroke={trendColors[0]}
+              strokeWidth="3"
+              points={data.trendNational
+                .map((p) => {
+                  const x =
+                    data.availableYears.length === 1
+                      ? 50
+                      : ((p.aar - data.periodStart) /
+                          (data.periodEnd - data.periodStart || 1)) *
+                        100;
+                  const y = 100 - ((p.vaerdi - trendMin) / trendRange) * 84 - 8;
+                  return `${x},${y}`;
+                })
+                .join(" ")}
+            />
+          </svg>
+        </div>
 
-              <div className="mt-4 flex flex-wrap gap-3 text-xs">
-                <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5">
-                  <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: trendColors[0] }}
-                  />
-                  <span className="font-medium text-slate-700">Nationalt gennemsnit</span>
-                </div>
+        <div className="mt-3 flex justify-between px-1 text-xs text-slate-500">
+          {data.availableYears.map((year, index) =>
+            index % 2 === 0 || index === data.availableYears.length - 1 ? (
+              <span key={year}>{year}</span>
+            ) : (
+              <span key={year} />
+            )
+          )}
+        </div>
+      </div>
+    </div>
 
-                {data.hospitalTrends.map((series, index) => (
-                  <div
-                    key={series.hospital_id}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5"
-                  >
-                    <span
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{ backgroundColor: trendColors[(index + 1) % trendColors.length] }}
-                    />
-                    <span className="font-medium text-slate-700">{series.hospital_navn}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </GlassCard>
+    <div className="mt-5 flex flex-wrap gap-3 text-xs">
+      <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5">
+        <span
+          className="h-2.5 w-2.5 rounded-full"
+          style={{ backgroundColor: trendColors[0] }}
+        />
+        <span className="font-medium text-slate-700">Nationalt gennemsnit</span>
+      </div>
+
+      {(data.hospitalTrends ?? []).map((series, index) => (
+        <div
+          key={series.hospital_id}
+          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5"
+        >
+          <span
+            className="h-2.5 w-2.5 rounded-full"
+            style={{ backgroundColor: trendColors[(index + 1) % trendColors.length] }}
+          />
+          <span className="font-medium text-slate-700">{series.hospital_navn}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+</GlassCard>
 
           <GlassCard accent="sky" className="p-6">
             <div className="flex items-center justify-between gap-4">
@@ -460,109 +504,115 @@ export default async function DatabasePage({ params, searchParams }: PageProps) 
         </section>
 
         <section className="mt-12 grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-          <GlassCard accent="slate" className="p-6">
-            <div className="text-2xl font-semibold tracking-tight text-slate-950">
-              Hospital performance
-            </div>
+ <GlassCard accent="slate" className="p-6">
+  <div className="text-2xl font-semibold tracking-tight text-slate-950">
+    Hospital performance
+  </div>
+  <div className="mt-2 text-sm leading-6 text-slate-600">
+    Samlet overblik over resultater, aktivitet og udvikling for hospitaler i den valgte indikator.
+  </div>
 
-            <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
-              <div className="grid grid-cols-12 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <div className="col-span-1">Rang</div>
-                <div className="col-span-4">Hospital</div>
-                <div className="col-span-2">Region</div>
-                <div className="col-span-2 text-right">Resultat</div>
-                <div className="col-span-2 text-right">Forløb</div>
-                <div className="col-span-1 text-right">Δ</div>
+  <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
+    <div className="grid grid-cols-12 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600">
+      <div className="col-span-1">Rang</div>
+      <div className="col-span-4">Hospital</div>
+      <div className="col-span-2">Region</div>
+      <div className="col-span-2 text-right">Resultat</div>
+      <div className="col-span-2 text-right">Forløb</div>
+      <div className="col-span-1 text-right">Δ</div>
+    </div>
+
+    <div className="divide-y divide-slate-200/90">
+      {data.hospitalPerformanceRows.slice(0, 8).map((row) => (
+        <div key={row.hospital_id} className="grid grid-cols-12 px-5 py-4 text-sm">
+          <div className="col-span-1 font-semibold text-slate-950">{row.rang}</div>
+          <div className="col-span-4 font-medium text-slate-950">{row.hospital_navn}</div>
+          <div className="col-span-2 text-slate-600">{row.region}</div>
+          <div className="col-span-2 text-right font-semibold text-slate-950">
+            {row.vaerdi.toFixed(1)}
+            {formatUnit(row.enhed)}
+          </div>
+          <div className="col-span-2 text-right text-slate-700">{row.antal_forloeb}</div>
+          <div className="col-span-1 text-right font-semibold text-slate-950">
+            {formatImprovement(row.forbedring, row.enhed, row.retning)}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</GlassCard>
+<GlassCard accent="rose" className="p-6">
+  <div className="text-2xl font-semibold tracking-tight text-slate-950">
+    Variation på tværs af afdelinger
+  </div>
+  <div className="mt-2 text-sm leading-6 text-slate-600">
+    Konfidensinterval og observeret værdi for udvalgte afdelinger i {data.selectedYear}.
+  </div>
+
+  <div className="mt-5 rounded-[24px] border border-slate-200 bg-white/60 p-5">
+    <div className="space-y-5">
+      {data.variationDepartments.slice(0, 8).map((row) => {
+        const lineLeft =
+          ((row.ci_nedre - variationScaleMin) / variationScaleRange) * 100;
+        const lineRight =
+          ((row.ci_oevre - variationScaleMin) / variationScaleRange) * 100;
+        const pointLeft =
+          ((row.vaerdi - variationScaleMin) / variationScaleRange) * 100;
+
+        return (
+          <div key={row.afdeling_id} className="grid grid-cols-[1.15fr_2fr] gap-5">
+            <div>
+              <div className="text-sm font-medium text-slate-950">
+                {row.afdeling_navn}
               </div>
+              <div className="mt-1 text-xs text-slate-500">{row.hospital_navn}</div>
+            </div>
 
-              <div className="divide-y divide-slate-200">
-                {data.hospitalPerformanceRows.slice(0, 8).map((row) => (
-                  <div key={row.hospital_id} className="grid grid-cols-12 px-4 py-3 text-sm">
-                    <div className="col-span-1 font-semibold text-slate-950">{row.rang}</div>
-                    <div className="col-span-4 text-slate-950">{row.hospital_navn}</div>
-                    <div className="col-span-2 text-slate-600">{row.region}</div>
-                    <div className="col-span-2 text-right font-semibold text-slate-950">
-                      {row.vaerdi.toFixed(1)}
-                      {formatUnit(row.enhed)}
-                    </div>
-                    <div className="col-span-2 text-right text-slate-700">{row.antal_forloeb}</div>
-                    <div className="col-span-1 text-right font-semibold text-slate-950">
-                      {formatImprovement(row.forbedring, row.enhed, row.retning)}
-                    </div>
-                  </div>
-                ))}
+            <div className="relative pt-5">
+              <div className="absolute left-0 right-0 top-1/2 border-t border-dashed border-slate-200" />
+
+              <div
+                className="absolute top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-slate-400"
+                style={{
+                  left: `${lineLeft}%`,
+                  width: `${Math.max(lineRight - lineLeft, 1)}%`,
+                }}
+              />
+
+              <div
+                className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-rose-500/70 bg-rose-400 shadow-sm"
+                style={{ left: `${pointLeft}%` }}
+                title={`${row.vaerdi.toFixed(1)}${formatUnit(data.selectedIndikator.enhed)}`}
+              />
+
+              <div className="mt-7 flex justify-between text-[11px] text-slate-500">
+                <span>
+                  {row.ci_nedre.toFixed(1)}
+                  {formatUnit(data.selectedIndikator.enhed)}
+                </span>
+                <span className="font-semibold text-slate-700">
+                  {row.vaerdi.toFixed(1)}
+                  {formatUnit(data.selectedIndikator.enhed)}
+                </span>
+                <span>
+                  {row.ci_oevre.toFixed(1)}
+                  {formatUnit(data.selectedIndikator.enhed)}
+                </span>
               </div>
             </div>
-          </GlassCard>
+          </div>
+        );
+      })}
+    </div>
+  </div>
 
-          <GlassCard accent="rose" className="p-6">
-            <div className="text-2xl font-semibold tracking-tight text-slate-950">
-              Variation på tværs af afdelinger
-            </div>
-            <div className="mt-2 text-sm leading-6 text-slate-600">
-              Box plot-look med konfidensinterval for udvalgte afdelinger i {data.selectedYear}.
-            </div>
-
-            <div className="mt-5 rounded-[24px] border border-slate-200 bg-white/60 p-4">
-              <div className="space-y-4">
-                {data.variationDepartments.slice(0, 8).map((row) => {
-                  const lineLeft =
-                    ((row.ci_nedre - variationScaleMin) / variationScaleRange) * 100;
-                  const lineRight =
-                    ((row.ci_oevre - variationScaleMin) / variationScaleRange) * 100;
-                  const pointLeft =
-                    ((row.vaerdi - variationScaleMin) / variationScaleRange) * 100;
-
-                  return (
-                    <div key={row.afdeling_id} className="grid grid-cols-[1.2fr_2fr] gap-4">
-                      <div>
-                        <div className="text-sm font-medium text-slate-900">
-                          {row.afdeling_navn}
-                        </div>
-                        <div className="text-xs text-slate-500">{row.hospital_navn}</div>
-                      </div>
-
-                      <div className="relative pt-5">
-                        <div className="absolute left-0 right-0 top-1/2 border-t border-dashed border-slate-200" />
-                        <div
-                          className="absolute top-1/2 h-[2px] -translate-y-1/2 bg-slate-400"
-                          style={{
-                            left: `${lineLeft}%`,
-                            width: `${Math.max(lineRight - lineLeft, 1)}%`,
-                          }}
-                        />
-                        <div
-                          className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-rose-500/70 bg-rose-400"
-                          style={{ left: `${pointLeft}%` }}
-                          title={`${row.vaerdi.toFixed(1)}${formatUnit(data.selectedIndikator.enhed)}`}
-                        />
-                        <div className="mt-7 flex justify-between text-[11px] text-slate-500">
-                          <span>
-                            {row.ci_nedre.toFixed(1)}
-                            {formatUnit(data.selectedIndikator.enhed)}
-                          </span>
-                          <span className="font-medium text-slate-700">
-                            {row.vaerdi.toFixed(1)}
-                            {formatUnit(data.selectedIndikator.enhed)}
-                          </span>
-                          <span>
-                            {row.ci_oevre.toFixed(1)}
-                            {formatUnit(data.selectedIndikator.enhed)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-4 text-sm font-medium text-slate-700">
-              Variationsspænd: {data.variationMin.toFixed(1)}
-              {formatUnit(data.selectedIndikator.enhed)} – {data.variationMax.toFixed(1)}
-              {formatUnit(data.selectedIndikator.enhed)}
-            </div>
-          </GlassCard>
+  <div className="mt-4 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 text-sm text-slate-700">
+    <span className="font-medium">Variationsspænd:</span>{" "}
+    {data.variationMin.toFixed(1)}
+    {formatUnit(data.selectedIndikator.enhed)} – {data.variationMax.toFixed(1)}
+    {formatUnit(data.selectedIndikator.enhed)}
+  </div>
+</GlassCard>
         </section>
 
         <section className="mt-12">
