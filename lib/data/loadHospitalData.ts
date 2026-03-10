@@ -102,6 +102,18 @@ export type HospitalPageData = {
     navn: string;
   }>;
 
+  allDatabases: Array<{
+    database_id: string;
+    database_navn: string;
+    speciale: string;
+  }>;
+
+  allHospitals: Array<{
+    hospital_id: string;
+    region: string;
+    hospital_navn: string;
+  }>;
+
   landscapeRows: Array<{
     id: string;
     navn: string;
@@ -116,6 +128,7 @@ export type HospitalPageData = {
     aar: number;
     hospitalValue: number | null;
     nationalValue: number | null;
+    bestHospitalValue: number | null;
   }>;
   trendMeta: {
     enabled: boolean;
@@ -123,6 +136,8 @@ export type HospitalPageData = {
     indicatorName: string | null;
     enhed: string | null;
     retning: "lavere_bedre" | "hoejere_bedre" | null;
+    bestHospitalName: string | null;
+    bestHospitalId: string | null;
   };
 
   performanceRows: Array<{
@@ -247,45 +262,15 @@ function max(values: Array<number | null>): number | null {
 
 function formatValue(value: number | null, enhed = ""): string {
   if (value == null) return "–";
-
-  if (enhed === "pct" || enhed === "%") {
-    return `${value.toFixed(1)}%`;
-  }
-  if (enhed === "dage") {
-    return `${value.toFixed(1)} dage`;
-  }
-  if (enhed === "timer") {
-    return `${value.toFixed(1)} timer`;
-  }
-  if (enhed === "index_0_100") {
-    return value.toFixed(1);
-  }
-
+  if (enhed === "pct" || enhed === "%") return `${value.toFixed(1)}%`;
+  if (enhed === "dage") return `${value.toFixed(1)} dage`;
+  if (enhed === "timer") return `${value.toFixed(1)} timer`;
   return value.toFixed(1);
-}
-
-function formatRank(rank: number | null): string {
-  if (rank == null) return "–";
-  return `#${Math.round(rank)}`;
 }
 
 function rankScore(rank: number | null, populationSize: number): number | null {
   if (rank == null || populationSize <= 1) return null;
   return 1 - (rank - 1) / (populationSize - 1);
-}
-
-function compareByPerformance(
-  a: { vaerdi: number | null; retning: "lavere_bedre" | "hoejere_bedre" },
-  b: { vaerdi: number | null; retning: "lavere_bedre" | "hoejere_bedre" }
-): number {
-  if (a.vaerdi == null && b.vaerdi == null) return 0;
-  if (a.vaerdi == null) return 1;
-  if (b.vaerdi == null) return -1;
-
-  if (a.retning === "lavere_bedre") {
-    return a.vaerdi - b.vaerdi;
-  }
-  return b.vaerdi - a.vaerdi;
 }
 
 function improvementDirectionAdjusted(
@@ -379,9 +364,7 @@ export async function loadHospitalData(
   }));
 
   const hospital = hospitals.find((h) => h.hospital_id === hospitalId);
-  if (!hospital) {
-    throw new Error(`Hospital not found: ${hospitalId}`);
-  }
+  if (!hospital) throw new Error(`Hospital not found: ${hospitalId}`);
 
   const hospitalRowsAllYears = hospitalFacts.filter((r) => r.hospital_id === hospitalId);
   if (!hospitalRowsAllYears.length) {
@@ -442,29 +425,65 @@ export async function loadHospitalData(
       };
     })
     .sort((a, b) => {
-      const byRank =
-        a.rang == null && b.rang == null
-          ? 0
-          : a.rang == null
-            ? 1
-            : b.rang == null
-              ? -1
-              : a.rang - b.rang;
-
-      if (byRank !== 0) return byRank;
-      return compareByPerformance(a, b);
+      if (a.rang == null && b.rang == null) return 0;
+      if (a.rang == null) return 1;
+      if (b.rang == null) return -1;
+      return a.rang - b.rang;
     });
 
-  const bestPerformance = performanceRows[0] ?? null;
+  const hospitalPopulationSize =
+    new Set(hospitalFacts.filter((r) => r.aar === selectedYear).map((r) => r.hospital_id)).size || 18;
 
-  const bestMovement = [...performanceRows]
-    .filter((r) => r.forbedring != null)
-    .map((r) => ({
-      ...r,
-      adjustedImprovement: improvementDirectionAdjusted(r.forbedring, r.retning),
-    }))
-    .filter((r) => r.adjustedImprovement != null)
-    .sort((a, b) => (b.adjustedImprovement! - a.adjustedImprovement!))[0] ?? null;
+  const topQuartileCount = performanceRows.filter(
+    (r) => r.rang != null && r.rang <= Math.ceil(hospitalPopulationSize * 0.25)
+  ).length;
+
+  const positiveMovementCount = performanceRows.filter((r) => {
+    const adjusted = improvementDirectionAdjusted(r.forbedring, r.retning);
+    return adjusted != null && adjusted > 0;
+  }).length;
+
+  const groupedByDatabase = new Map<string, typeof performanceRows>();
+  for (const row of performanceRows) {
+    if (!groupedByDatabase.has(row.database_id)) {
+      groupedByDatabase.set(row.database_id, []);
+    }
+    groupedByDatabase.get(row.database_id)!.push(row);
+  }
+
+  const landscapeRows = [...groupedByDatabase.entries()]
+    .map(([databaseId, rows]) => {
+      const db = databaseMap.get(databaseId);
+
+      const avgAdjustedImprovement = avg(
+        rows.map((r) => improvementDirectionAdjusted(r.forbedring, r.retning))
+      );
+
+      const avgRankScore = avg(rows.map((r) => rankScore(r.rang, hospitalPopulationSize)));
+      const avgRank = avg(rows.map((r) => r.rang));
+
+      return {
+        id: databaseId,
+        navn: db?.database_navn ?? databaseId,
+        speciale: db?.speciale ?? "",
+        xForbedring: avgAdjustedImprovement,
+        yScore: avgRankScore,
+        avgRank,
+        indikatorCount: rows.length,
+      };
+    })
+    .sort((a, b) => a.navn.localeCompare(b.navn, "da"));
+
+  const bestSinglePerformance = performanceRows[0] ?? null;
+
+  const bestSingleMovement =
+    [...performanceRows]
+      .map((r) => ({
+        ...r,
+        adjusted: improvementDirectionAdjusted(r.forbedring, r.retning),
+      }))
+      .filter((r) => r.adjusted != null)
+      .sort((a, b) => b.adjusted! - a.adjusted!)[0] ?? null;
 
   const measureRowsSelectedYear = measurePoints.filter(
     (r) =>
@@ -499,72 +518,40 @@ export async function loadHospitalData(
       if (a.vaerdi == null) return 1;
       if (b.vaerdi == null) return -1;
       return a.vaerdi - b.vaerdi;
-    })
-    .slice(0, 8);
+    });
 
-  const variationValues = departmentVariationRows.map((r) => r.vaerdi);
-  const variationMin = min(variationValues);
-  const variationMax = max(variationValues);
-  const variationSpread =
-    variationMin != null && variationMax != null ? variationMax - variationMin : null;
+  const widestVariation =
+    departmentVariationRows
+      .map((r) => ({
+        ...r,
+        spread:
+          r.ci_nedre != null && r.ci_oevre != null ? r.ci_oevre - r.ci_nedre : null,
+      }))
+      .filter((r) => r.spread != null)
+      .sort((a, b) => b.spread! - a.spread!)[0] ?? null;
 
-  const groupedByDatabase = new Map<string, typeof performanceRows>();
-  for (const row of performanceRows) {
-    if (!groupedByDatabase.has(row.database_id)) {
-      groupedByDatabase.set(row.database_id, []);
-    }
-    groupedByDatabase.get(row.database_id)!.push(row);
-  }
+  const variationRowsForDisplay = departmentVariationRows.slice(0, 8);
 
-  const hospitalPopulationSize =
-    new Set(
-      hospitalFacts.filter((r) => r.aar === selectedYear).map((r) => r.hospital_id)
-    ).size || 18;
-
-  const landscapeRows = [...groupedByDatabase.entries()]
-    .map(([databaseId, rows]) => {
-      const db = databaseMap.get(databaseId);
-
-      const avgAdjustedImprovement = avg(
-        rows.map((r) => improvementDirectionAdjusted(r.forbedring, r.retning))
-      );
-
-      const avgRankScore = avg(
-        rows.map((r) => rankScore(r.rang, hospitalPopulationSize))
-      );
-
-      const avgRank = avg(rows.map((r) => r.rang));
-
-      return {
-        id: databaseId,
-        navn: db?.database_navn ?? databaseId,
-        speciale: db?.speciale ?? "",
-        xForbedring: avgAdjustedImprovement,
-        yScore: avgRankScore,
-        avgRank,
-        indikatorCount: rows.length,
-      };
-    })
-    .sort((a, b) => a.navn.localeCompare(b.navn, "da"));
-
-  // Trend: kun meningsfuld når én database er valgt
   let trendSeries: Array<{
     aar: number;
     hospitalValue: number | null;
     nationalValue: number | null;
+    bestHospitalValue: number | null;
   }> = [];
+
   let trendMeta: HospitalPageData["trendMeta"] = {
     enabled: false,
     databaseName: null,
     indicatorName: null,
     enhed: null,
     retning: null,
+    bestHospitalName: null,
+    bestHospitalId: null,
   };
 
   if (selectedDatabaseId) {
     const dbRowsCurrentYear = performanceRows.filter((r) => r.database_id === selectedDatabaseId);
 
-    // vælg den "bedst rangerede" indikator i den valgte database som trend-reference
     const anchorRow =
       [...dbRowsCurrentYear].sort((a, b) => {
         if (a.rang == null && b.rang == null) return 0;
@@ -574,12 +561,29 @@ export async function loadHospitalData(
       })[0] ?? null;
 
     if (anchorRow) {
+      const bestHospitalCurrentYearRow = hospitalFacts
+        .filter(
+          (r) =>
+            r.aar === selectedYear &&
+            r.database_id === selectedDatabaseId &&
+            r.indikator_id === anchorRow.indikator_id &&
+            !r.metodebrud_flag
+        )
+        .sort((a, b) => {
+          if (a.rang_hospital == null && b.rang_hospital == null) return 0;
+          if (a.rang_hospital == null) return 1;
+          if (b.rang_hospital == null) return -1;
+          return a.rang_hospital - b.rang_hospital;
+        })[0] ?? null;
+
       trendMeta = {
         enabled: true,
         databaseName: anchorRow.database_navn,
         indicatorName: anchorRow.indikator_navn,
         enhed: anchorRow.enhed,
         retning: anchorRow.retning,
+        bestHospitalName: bestHospitalCurrentYearRow?.hospital_navn ?? null,
+        bestHospitalId: bestHospitalCurrentYearRow?.hospital_id ?? null,
       };
 
       trendSeries = availableYears.map((aar) => {
@@ -600,10 +604,23 @@ export async function loadHospitalData(
             !r.metodebrud_flag
         );
 
+        const bestHospitalTrendRow =
+          bestHospitalCurrentYearRow == null
+            ? null
+            : hospitalFacts.find(
+                (r) =>
+                  r.hospital_id === bestHospitalCurrentYearRow.hospital_id &&
+                  r.aar === aar &&
+                  r.database_id === selectedDatabaseId &&
+                  r.indikator_id === anchorRow.indikator_id &&
+                  !r.metodebrud_flag
+              ) ?? null;
+
         return {
           aar,
           hospitalValue: hospitalRow?.vaerdi_hospital ?? null,
           nationalValue: avg(allHospitalsSameIndicator.map((r) => r.vaerdi_hospital)),
+          bestHospitalValue: bestHospitalTrendRow?.vaerdi_hospital ?? null,
         };
       });
     }
@@ -620,6 +637,115 @@ export async function loadHospitalData(
     (x) => x.indikator_id
   ).sort((a, b) => a.indikator_navn.localeCompare(b.indikator_navn, "da"));
 
+  const allDatabasesMode = selectedDatabaseId == null;
+
+  const benchmarkSummary = allDatabasesMode
+    ? {
+        value: `${Math.round((topQuartileCount / Math.max(performanceRows.length, 1)) * 100)}%`,
+        description: "Andel indikatorer i top 25 % blandt hospitalerne",
+        subRows: [
+          { label: "Top 25 %", value: `${topQuartileCount} af ${performanceRows.length}` },
+          {
+            label: "Gns. rang",
+            value:
+              avg(performanceRows.map((r) => r.rang)) == null
+                ? "–"
+                : avg(performanceRows.map((r) => r.rang))!.toFixed(1),
+          },
+        ],
+      }
+    : {
+        value: bestSinglePerformance?.rang == null ? "–" : `#${Math.round(bestSinglePerformance.rang)}`,
+        description: bestSinglePerformance
+          ? `${bestSinglePerformance.indikator_navn} · ${bestSinglePerformance.database_navn}`
+          : "Intet datagrundlag",
+        subRows: bestSinglePerformance
+          ? [
+              {
+                label: "Niveau",
+                value: formatValue(bestSinglePerformance.vaerdi, bestSinglePerformance.enhed),
+              },
+              {
+                label: "Forløb",
+                value:
+                  bestSinglePerformance.antal_forloeb == null
+                    ? "–"
+                    : String(Math.round(bestSinglePerformance.antal_forloeb)),
+              },
+            ]
+          : [],
+      };
+
+  const movementSummary = allDatabasesMode
+    ? {
+        value: `${Math.round((positiveMovementCount / Math.max(performanceRows.length, 1)) * 100)}%`,
+        description: "Andel indikatorer med positiv retningstilpasset udvikling",
+        subRows: [
+          {
+            label: "Positiv udvikling",
+            value: `${positiveMovementCount} af ${performanceRows.length}`,
+          },
+          {
+            label: "Største forbedringsområde",
+            value: bestSingleMovement?.database_navn ?? "–",
+          },
+        ],
+      }
+    : {
+        value: bestSingleMovement
+          ? formatValue(bestSingleMovement.forbedring, bestSingleMovement.enhed)
+          : "–",
+        description: bestSingleMovement
+          ? `${bestSingleMovement.indikator_navn} · ${bestSingleMovement.database_navn}`
+          : "Intet datagrundlag",
+        subRows: bestSingleMovement
+          ? [
+              {
+                label: "Udvikling siden baseline",
+                value: formatValue(bestSingleMovement.forbedring, bestSingleMovement.enhed),
+              },
+              {
+                label: "Retning",
+                value:
+                  bestSingleMovement.retning === "lavere_bedre"
+                    ? "Lavere er bedre"
+                    : "Højere er bedre",
+              },
+            ]
+          : [],
+      };
+
+  const variationSummary = allDatabasesMode
+    ? {
+        value: widestVariation?.spread == null ? "–" : formatValue(widestVariation.spread, widestVariation.enhed),
+        description: widestVariation
+          ? `Største interne spænd · ${widestVariation.database_navn}`
+          : "Intet variationsgrundlag",
+        subRows: widestVariation
+          ? [
+              { label: "Indikator", value: widestVariation.indikator_navn },
+              {
+                label: "Afdeling",
+                value: widestVariation.afdeling_navn,
+              },
+            ]
+          : [],
+      }
+    : {
+        value:
+          widestVariation?.spread == null ? "–" : formatValue(widestVariation.spread, widestVariation.enhed),
+        description:
+          selectedDatabaseId && databaseMap.get(selectedDatabaseId)
+            ? `Intern variation · ${databaseMap.get(selectedDatabaseId)?.database_navn}`
+            : "Vælg en database for mere præcis variation",
+        subRows: widestVariation
+          ? [
+              { label: "Min", value: formatValue(min(variationRowsForDisplay.map((r) => r.vaerdi)), widestVariation.enhed) },
+              { label: "Max", value: formatValue(max(variationRowsForDisplay.map((r) => r.vaerdi)), widestVariation.enhed) },
+            ]
+          : [],
+      };
+
   return {
     hospital,
     selectedYear,
@@ -627,84 +753,20 @@ export async function loadHospitalData(
     selectedDatabaseId,
     periodStart,
     periodEnd,
-
     databaseCount,
     indikatorCount,
     afdelingCount,
-
-    benchmarkSummary: {
-      value: bestPerformance ? formatRank(bestPerformance.rang) : "–",
-      description: bestPerformance
-        ? `${bestPerformance.indikator_navn} · ${bestPerformance.database_navn}`
-        : "Intet datagrundlag",
-      subRows: bestPerformance
-        ? [
-            {
-              label: "Niveau",
-              value: formatValue(bestPerformance.vaerdi, bestPerformance.enhed),
-            },
-            {
-              label: "Forløb",
-              value:
-                bestPerformance.antal_forloeb == null
-                  ? "–"
-                  : String(Math.round(bestPerformance.antal_forloeb)),
-            },
-          ]
-        : [],
-    },
-
-    movementSummary: {
-      value: bestMovement
-        ? formatValue(bestMovement.forbedring, bestMovement.enhed)
-        : "–",
-      description: bestMovement
-        ? `${bestMovement.indikator_navn} · ${bestMovement.database_navn}`
-        : "Intet datagrundlag",
-      subRows: bestMovement
-        ? [
-            {
-              label: "Udvikling siden baseline",
-              value: formatValue(bestMovement.forbedring, bestMovement.enhed),
-            },
-            {
-              label: "Retning",
-              value:
-                bestMovement.retning === "lavere_bedre"
-                  ? "Lavere er bedre"
-                  : "Højere er bedre",
-            },
-          ]
-        : [],
-    },
-
-    variationSummary: {
-      value: formatValue(
-        variationSpread,
-        departmentVariationRows[0]?.enhed ?? ""
-      ),
-      description:
-        selectedDatabaseId && databaseMap.get(selectedDatabaseId)
-          ? `Intern variation · ${databaseMap.get(selectedDatabaseId)?.database_navn}`
-          : "Vælg en database for mere præcis variation",
-      subRows: [
-        {
-          label: "Min",
-          value: formatValue(variationMin, departmentVariationRows[0]?.enhed ?? ""),
-        },
-        {
-          label: "Max",
-          value: formatValue(variationMax, departmentVariationRows[0]?.enhed ?? ""),
-        },
-      ],
-    },
-
+    benchmarkSummary,
+    movementSummary,
+    variationSummary,
     databasesForFilter,
+    allDatabases: databases,
+    allHospitals: hospitals,
     landscapeRows,
     trendSeries,
     trendMeta,
     performanceRows,
-    departmentVariationRows,
+    departmentVariationRows: variationRowsForDisplay,
     indikatorCards,
   };
 }

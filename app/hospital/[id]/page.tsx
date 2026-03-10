@@ -1,4 +1,5 @@
 import Link from "next/link";
+import TopNav from "@/components/navigation/TopNav";
 import HospitalFilters from "@/components/hospital/HospitalFilters";
 import { loadHospitalData } from "@/lib/data/loadHospitalData";
 
@@ -26,26 +27,27 @@ function clamp01(value: number) {
 export default async function HospitalPage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
-
   const data = await loadHospitalData(id, resolvedSearchParams);
 
-  const validLandscapeX = data.landscapeRows
-    .map((r) => r.xForbedring)
-    .filter((v): v is number => v != null);
-  const validLandscapeY = data.landscapeRows
-    .map((r) => r.yScore)
-    .filter((v): v is number => v != null);
+  const validLandscapeX = data.landscapeRows.map((r) => r.xForbedring).filter((v): v is number => v != null);
+  const validLandscapeY = data.landscapeRows.map((r) => r.yScore).filter((v): v is number => v != null);
 
   const minX = validLandscapeX.length ? Math.min(...validLandscapeX) : -1;
   const maxX = validLandscapeX.length ? Math.max(...validLandscapeX) : 1;
   const minY = validLandscapeY.length ? Math.min(...validLandscapeY) : 0;
   const maxY = validLandscapeY.length ? Math.max(...validLandscapeY) : 1;
 
-  const trendValues = data.trendSeries.flatMap((d) => [d.hospitalValue, d.nationalValue]).filter((v): v is number => v != null);
+  const trendValues = data.trendSeries
+    .flatMap((d) => [d.hospitalValue, d.nationalValue, d.bestHospitalValue])
+    .filter((v): v is number => v != null);
+
   const trendMin = trendValues.length ? Math.min(...trendValues) : 0;
   const trendMax = trendValues.length ? Math.max(...trendValues) : 1;
 
-  const variationValues = data.departmentVariationRows.flatMap((d) => [d.ci_nedre, d.vaerdi, d.ci_oevre]).filter((v): v is number => v != null);
+  const variationValues = data.departmentVariationRows
+    .flatMap((d) => [d.ci_nedre, d.vaerdi, d.ci_oevre])
+    .filter((v): v is number => v != null);
+
   const variationMin = variationValues.length ? Math.min(...variationValues) : 0;
   const variationMax = variationValues.length ? Math.max(...variationValues) : 1;
 
@@ -73,8 +75,22 @@ export default async function HospitalPage({ params, searchParams }: PageProps) 
     return ((value - variationMin) / (variationMax - variationMin)) * 100;
   }
 
+  const trendTicks = 5;
+  const trendAxisValues = Array.from({ length: trendTicks }, (_, i) => {
+    const ratio = i / (trendTicks - 1);
+    const value = trendMax - ratio * (trendMax - trendMin);
+    return value;
+  });
+
   return (
     <main className="min-h-screen bg-[#f3f6fb] text-slate-900">
+      
+<TopNav
+  databases={data.allDatabases}
+  hospitals={data.allHospitals}
+  active="hospital"
+/>
+
       <div className="mx-auto max-w-[1400px] px-6 pb-16 pt-10 md:px-8 lg:px-10">
         <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
           <section>
@@ -238,9 +254,7 @@ export default async function HospitalPage({ params, searchParams }: PageProps) 
                       <div className="text-slate-600">
                         Forbedring: {point.xForbedring == null ? "–" : point.xForbedring.toFixed(2)}
                       </div>
-                      <div className="text-slate-600">
-                        Indikatorer: {point.indikatorCount}
-                      </div>
+                      <div className="text-slate-600">Indikatorer: {point.indikatorCount}</div>
                     </div>
                   </div>
                 ))}
@@ -257,7 +271,7 @@ export default async function HospitalPage({ params, searchParams }: PageProps) 
                   </h2>
                   <p className="mt-3 text-sm leading-6 text-slate-600">
                     {data.trendMeta.enabled
-                      ? `Hospitalet sammenholdt med nationalt niveau for ${data.trendMeta.indicatorName} i ${data.trendMeta.databaseName}.`
+                      ? `Hospitalet sammenholdt med nationalt niveau og bedste hospital for ${data.trendMeta.indicatorName} i ${data.trendMeta.databaseName}.`
                       : "Vælg én database for at se en meningsfuld trend over tid."}
                   </p>
                 </div>
@@ -272,88 +286,140 @@ export default async function HospitalPage({ params, searchParams }: PageProps) 
                     Vælg en database i filteret for at vise trend for en konkret indikator over tid.
                   </div>
                 ) : (
-                  <div className="relative h-[280px]">
-                    <div className="absolute inset-0 rounded-[20px] bg-[linear-gradient(to_right,rgba(148,163,184,0.10)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.10)_1px,transparent_1px)] bg-[size:48px_48px]" />
-
-                    <svg viewBox="0 0 100 100" className="relative h-full w-full overflow-visible">
-                      {(() => {
-                        const hospitalPoints = data.trendSeries.map((d, i) => {
-                          const x =
-                            data.trendSeries.length <= 1
-                              ? 50
-                              : (i / (data.trendSeries.length - 1)) * 100;
-                          const y = trendYPct(d.hospitalValue);
-                          return `${x},${y}`;
-                        });
-
-                        const nationalPoints = data.trendSeries.map((d, i) => {
-                          const x =
-                            data.trendSeries.length <= 1
-                              ? 50
-                              : (i / (data.trendSeries.length - 1)) * 100;
-                          const y = trendYPct(d.nationalValue);
-                          return `${x},${y}`;
-                        });
-
+                  <div className="grid grid-cols-[44px_1fr] gap-3">
+                    <div className="relative h-[280px]">
+                      {trendAxisValues.map((tick, idx) => {
+                        const top = `${(idx / (trendTicks - 1)) * 100}%`;
                         return (
-                          <>
-                            <polyline
-                              fill="none"
-                              stroke="rgb(148 163 184)"
-                              strokeWidth="1.2"
-                              points={nationalPoints.join(" ")}
-                            />
-                            <polyline
-                              fill="none"
-                              stroke="rgb(14 165 233)"
-                              strokeWidth="1.6"
-                              points={hospitalPoints.join(" ")}
-                            />
-
-                            {data.trendSeries.map((d, i) => {
-                              const x =
-                                data.trendSeries.length <= 1
-                                  ? 50
-                                  : (i / (data.trendSeries.length - 1)) * 100;
-                              const y = trendYPct(d.hospitalValue);
-
-                              return (
-                                <circle
-                                  key={`hospital-${d.aar}`}
-                                  cx={x}
-                                  cy={y}
-                                  r="1.6"
-                                  fill="rgb(14 165 233)"
-                                />
-                              );
-                            })}
-                          </>
+                          <div
+                            key={idx}
+                            className="absolute right-0 -translate-y-1/2 text-[11px] text-slate-500"
+                            style={{ top }}
+                          >
+                            {formatSimpleValue(tick, data.trendMeta.enhed)}
+                          </div>
                         );
-                      })()}
-                    </svg>
+                      })}
+                    </div>
 
-                    <div className="pointer-events-none absolute inset-x-4 bottom-0 flex justify-between text-[11px] text-slate-500">
-                      {data.trendSeries.map((point) => (
-                        <span key={point.aar}>{point.aar}</span>
-                      ))}
+                    <div className="relative h-[280px]">
+                      <div className="absolute inset-0 rounded-[20px] bg-[linear-gradient(to_right,rgba(148,163,184,0.10)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.10)_1px,transparent_1px)] bg-[size:48px_48px]" />
+
+<svg viewBox="0 0 100 100" className="relative z-10 h-full w-full overflow-visible">
+  {(() => {
+    const hospitalPoints = data.trendSeries.map((d, i) => {
+      const x =
+        data.trendSeries.length <= 1
+          ? 50
+          : (i / (data.trendSeries.length - 1)) * 100;
+      const y = trendYPct(d.hospitalValue);
+      return `${x},${y}`;
+    });
+
+    const nationalPoints = data.trendSeries.map((d, i) => {
+      const x =
+        data.trendSeries.length <= 1
+          ? 50
+          : (i / (data.trendSeries.length - 1)) * 100;
+      const y = trendYPct(d.nationalValue);
+      return `${x},${y}`;
+    });
+
+    const bestHospitalPoints = data.trendSeries.map((d, i) => {
+      const x =
+        data.trendSeries.length <= 1
+          ? 50
+          : (i / (data.trendSeries.length - 1)) * 100;
+      const y = trendYPct(d.bestHospitalValue);
+      return `${x},${y}`;
+    });
+
+    return (
+      <>
+        <polyline
+          fill="none"
+          stroke="rgb(148 163 184)"
+          strokeWidth="1.2"
+          points={nationalPoints.join(" ")}
+        />
+        <polyline
+          fill="none"
+          stroke="rgb(16 185 129)"
+          strokeWidth="1.4"
+          points={bestHospitalPoints.join(" ")}
+        />
+        <polyline
+          fill="none"
+          stroke="rgb(14 165 233)"
+          strokeWidth="1.8"
+          points={hospitalPoints.join(" ")}
+        />
+
+        {data.trendSeries.map((d, i) => {
+          const x =
+            data.trendSeries.length <= 1
+              ? 50
+              : (i / (data.trendSeries.length - 1)) * 100;
+          const y = trendYPct(d.hospitalValue);
+
+          return (
+            <g key={`hospital-${d.aar}`} className="group">
+              <circle cx={x} cy={y} r="1.8" fill="rgb(14 165 233)" />
+              <circle cx={x} cy={y} r="5" fill="transparent" />
+              <foreignObject
+                x={x < 72 ? x + 2 : x - 34}
+                y={y < 24 ? y + 2 : y - 20}
+                width="32"
+                height="20"
+                className="pointer-events-none opacity-0 transition-opacity group-hover:opacity-100"
+              >
+                <div className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-[10px] leading-4 text-slate-700 shadow-lg">
+                  <div className="font-medium">{d.aar}</div>
+                  <div>Hosp.: {formatSimpleValue(d.hospitalValue, data.trendMeta.enhed)}</div>
+                  <div className="text-slate-500">
+                    Nat.: {formatSimpleValue(d.nationalValue, data.trendMeta.enhed)}
+                  </div>
+                  <div className="text-emerald-700">
+                    Bedst: {formatSimpleValue(d.bestHospitalValue, data.trendMeta.enhed)}
+                  </div>
+                </div>
+              </foreignObject>
+            </g>
+          );
+        })}
+      </>
+    );
+  })()}
+</svg>
+
+                      <div className="pointer-events-none absolute inset-x-4 bottom-0 flex justify-between text-[11px] text-slate-500">
+                        {data.trendSeries.map((point) => (
+                          <span key={point.aar}>{point.aar}</span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
 
                 {data.trendMeta.enabled && (
-                  <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-600">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full bg-sky-500" />
-                      Hospital
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
-                      Nationalt gennemsnit
-                    </div>
-                    <div className="flex items-center gap-2 text-slate-500">
-                      Enhed: {data.trendMeta.enhed}
-                    </div>
-                  </div>
+<div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-600">
+  <div className="flex items-center gap-2">
+    <span className="h-2.5 w-2.5 rounded-full bg-sky-500" />
+    Hospital
+  </div>
+  <div className="flex items-center gap-2">
+    <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
+    Nationalt gennemsnit
+  </div>
+  <div className="flex items-center gap-2">
+    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+    Bedste hospital
+    {data.trendMeta.bestHospitalName ? ` (${data.trendMeta.bestHospitalName})` : ""}
+  </div>
+  <div className="flex items-center gap-2 text-slate-500">
+    Enhed: {data.trendMeta.enhed}
+  </div>
+</div>
                 )}
               </div>
             </div>
@@ -466,23 +532,17 @@ export default async function HospitalPage({ params, searchParams }: PageProps) 
                 >
                   <div>
                     <div className="font-medium text-slate-900">{row.database_navn}</div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      {row.indikator_navn}
-                    </div>
+                    <div className="mt-1 text-xs text-slate-500">{row.indikator_navn}</div>
                   </div>
-
                   <div className="font-medium text-slate-900">
                     {formatSimpleValue(row.vaerdi, row.enhed)}
                   </div>
-
                   <div className="font-medium text-slate-900">
                     {formatSimpleValue(row.forbedring, row.enhed)}
                   </div>
-
                   <div className="font-medium text-slate-900">
                     {row.antal_forloeb == null ? "–" : Math.round(row.antal_forloeb)}
                   </div>
-
                   <div className="font-medium text-slate-900">
                     {row.rang == null ? "–" : Math.round(row.rang)}
                   </div>

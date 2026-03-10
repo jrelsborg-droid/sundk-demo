@@ -207,14 +207,15 @@ function MenuHospitals({
               <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                 {region}
               </div>
-              {regionHospitals.map((h) => (
-                <button
-                  key={h.hospital_id}
-                  className="block w-full rounded-2xl px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100"
-                >
-                  {h.hospital_navn}
-                </button>
-              ))}
+{regionHospitals.map((h) => (
+  <Link
+    key={h.hospital_id}
+    href={`/hospital/${h.hospital_id}`}
+    className="block w-full rounded-2xl px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100"
+  >
+    {h.hospital_navn}
+  </Link>
+))}
             </div>
           ))}
         </div>
