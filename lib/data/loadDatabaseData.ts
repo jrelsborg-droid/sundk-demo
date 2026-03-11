@@ -113,6 +113,9 @@ export type DatabasePageData = {
   periodStart: number;
   periodEnd: number;
 
+  allDatabases: DatabaseDimRow[];
+  allHospitals: HospitalDimRow[];
+
   benchmarkTop3: BenchmarkRow[];
   benchmarkWinner: BenchmarkRow | null;
 
@@ -475,6 +478,8 @@ export function loadDatabaseData(
     availableYears,
     periodStart,
     periodEnd,
+    allDatabases: databases,
+    allHospitals: hospitals,
     benchmarkTop3,
     benchmarkWinner,
     movementTop3,
