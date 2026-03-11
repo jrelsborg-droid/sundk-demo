@@ -1,6 +1,11 @@
+"use client";
+
+import { useMemo, useState } from "react";
+
 type TrendPoint = {
   aar: number;
   vaerdi: number;
+  rang?: number | null;
 };
 
 type LineSeries = {
@@ -28,14 +33,27 @@ export default function TimeSeriesChart({
   enhed: string;
   series: LineSeries[];
 }) {
+  const [hovered, setHovered] = useState<{
+    x: number;
+    y: number;
+    seriesName: string;
+    year: number;
+    value: number;
+    rang?: number | null;
+  } | null>(null);
+
   const allValues = series.flatMap((s) => s.points.map((p) => p.vaerdi));
   const minY = allValues.length ? Math.min(...allValues) : 0;
   const maxY = allValues.length ? Math.max(...allValues) : 1;
   const yRange = maxY - minY || 1;
 
-  const allYears = Array.from(
-    new Set(series.flatMap((s) => s.points.map((p) => p.aar)))
-  ).sort((a, b) => a - b);
+  const allYears = useMemo(
+    () =>
+      Array.from(new Set(series.flatMap((s) => s.points.map((p) => p.aar)))).sort(
+        (a, b) => a - b
+      ),
+    [series]
+  );
 
   const colors = [
     "rgb(14 165 233)",
@@ -44,6 +62,8 @@ export default function TimeSeriesChart({
     "rgb(245 158 11)",
     "rgb(244 63 94)",
     "rgb(99 102 241)",
+    "rgb(168 85 247)",
+    "rgb(34 197 94)",
   ];
 
   function xForYear(aar: number) {
@@ -107,27 +127,36 @@ export default function TimeSeriesChart({
                       strokeWidth="1.7"
                       points={points.join(" ")}
                     />
+
                     {s.points.map((p) => {
                       const x = xForYear(p.aar);
                       const y = yForValue(p.vaerdi);
 
                       return (
-                        <g key={`${s.id}-${p.aar}`} className="group">
-                          <circle cx={x} cy={y} r="1.5" fill={color} />
-                          <circle cx={x} cy={y} r="4" fill="transparent" />
-                          <foreignObject
-                            x={x < 75 ? x + 2 : x - 28}
-                            y={y < 20 ? y + 2 : y - 14}
-                            width="26"
-                            height="14"
-                            className="pointer-events-none opacity-0 transition-opacity group-hover:opacity-100"
-                          >
-                            <div className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-[10px] text-slate-700 shadow-lg">
-                              <div className="font-medium">{s.navn}</div>
-                              <div>{p.aar}</div>
-                              <div>{formatValue(p.vaerdi, enhed)}</div>
-                            </div>
-                          </foreignObject>
+                        <g key={`${s.id}-${p.aar}`}>
+                          <circle
+                            cx={x}
+                            cy={y}
+                            r="1.7"
+                            fill={color}
+                          />
+                          <circle
+                            cx={x}
+                            cy={y}
+                            r="4"
+                            fill="transparent"
+                            onMouseEnter={() =>
+                              setHovered({
+                                x,
+                                y,
+                                seriesName: s.navn,
+                                year: p.aar,
+                                value: p.vaerdi,
+                                rang: p.rang,
+                              })
+                            }
+                            onMouseLeave={() => setHovered(null)}
+                          />
                         </g>
                       );
                     })}
@@ -135,6 +164,21 @@ export default function TimeSeriesChart({
                 );
               })}
             </svg>
+
+            {hovered && (
+              <div
+                className="pointer-events-none absolute z-20 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-xl"
+                style={{
+                  left: `calc(${hovered.x}% + 10px)`,
+                  top: `calc(${hovered.y}% - 10px)`,
+                }}
+              >
+                <div className="font-semibold text-slate-900">{hovered.seriesName}</div>
+                <div>År: {hovered.year}</div>
+                <div>Værdi: {formatValue(hovered.value, enhed)}</div>
+                {hovered.rang != null && <div>Rang: {Math.round(hovered.rang)}</div>}
+              </div>
+            )}
 
             <div className="pointer-events-none absolute inset-x-4 bottom-0 flex justify-between text-[11px] text-slate-500">
               {allYears.map((year) => (

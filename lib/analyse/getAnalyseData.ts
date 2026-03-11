@@ -45,6 +45,7 @@ type AnalyseQuery = {
 type TrendPoint = {
   aar: number;
   vaerdi: number;
+  rang?: number | null;
 };
 
 type LineSeries = {
@@ -116,6 +117,8 @@ export type AnalysePageData = {
 
   chartTitle: string;
   chartSubtitle: string;
+  interpretationTitle: string;
+  interpretationText: string;
 
   lineSeries: LineSeries[];
   barRows: BarRow[];
@@ -171,6 +174,39 @@ function parseEntities(v?: string): string[] {
     .split(",")
     .map((x) => x.trim())
     .filter(Boolean);
+}
+
+function niveauLabel(niveau: Niveau) {
+  if (niveau === "national") return "nationalt niveau";
+  if (niveau === "hospital") return "hospitaler";
+  return "afdelinger";
+}
+
+function buildChartTitle(indikatorNavn: string, niveau: Niveau, vis: VisType) {
+  if (vis === "tabel") {
+    return `${indikatorNavn} i tabelvisning`;
+  }
+  if (vis === "bar") {
+    return `${indikatorNavn} på tværs af ${niveauLabel(niveau)}`;
+  }
+  return `Udvikling i ${indikatorNavn} på tværs af ${niveauLabel(niveau)}`;
+}
+
+function buildInterpretation(retning: Retning, niveau: Niveau, enhed: string) {
+  const directionText =
+    retning === "lavere_bedre" ? "Lavere værdier er bedre." : "Højere værdier er bedre.";
+
+  const levelText =
+    niveau === "national"
+      ? "Visningen sammenfatter udviklingen nationalt eller viser nationale sammenligninger."
+      : niveau === "hospital"
+        ? "Visningen sammenligner udvalgte hospitaler."
+        : "Visningen sammenligner udvalgte afdelinger.";
+
+  return {
+    title: "Sådan læses analysen",
+    text: `${directionText} ${levelText} Enhed: ${enhed}.`,
+  };
 }
 
 export function getAnalyseData(query?: AnalyseQuery): AnalysePageData {
@@ -386,6 +422,7 @@ export function getAnalyseData(query?: AnalyseQuery): AnalysePageData {
         return {
           aar,
           vaerdi: avg(rows.map((r) => r.vaerdi)),
+          rang: null,
         };
       });
 
@@ -445,6 +482,7 @@ export function getAnalyseData(query?: AnalyseQuery): AnalysePageData {
         .map((r) => ({
           aar: r.aar,
           vaerdi: r.vaerdi,
+          rang: Number.isFinite(r.rang) ? r.rang : null,
         }));
 
       if (points.length) {
@@ -508,6 +546,7 @@ export function getAnalyseData(query?: AnalyseQuery): AnalysePageData {
         .map((r) => ({
           aar: r.aar,
           vaerdi: r.vaerdi,
+          rang: Number.isFinite(r.rang) ? r.rang : null,
         }));
 
       if (points.length) {
@@ -558,14 +597,19 @@ export function getAnalyseData(query?: AnalyseQuery): AnalysePageData {
     }
   }
 
-  const chartTitle =
-    niveau === "national"
-      ? `${selectedIndikator.indikator_navn} · nationalt overblik`
-      : niveau === "hospital"
-        ? `${selectedIndikator.indikator_navn} · hospitalssammenligning`
-        : `${selectedIndikator.indikator_navn} · afdelingssammenligning`;
+  const chartTitle = buildChartTitle(
+    selectedIndikator.indikator_navn,
+    niveau,
+    vis
+  );
 
-  const chartSubtitle = `${selectedDatabase.database_navn} · ${selectedIndikator.indikator_type} · ${selectedIndikator.enhed}`;
+  const chartSubtitle = `${selectedDatabase.database_navn} · ${selectedIndikator.indikator_type} · ${selectedIndikator.enhed} · ${fromYear}–${toYear}`;
+
+  const interpretation = buildInterpretation(
+    selectedIndikator.retning,
+    niveau,
+    selectedIndikator.enhed
+  );
 
   return {
     allDatabases: databases,
@@ -593,6 +637,8 @@ export function getAnalyseData(query?: AnalyseQuery): AnalysePageData {
 
     chartTitle,
     chartSubtitle,
+    interpretationTitle: interpretation.title,
+    interpretationText: interpretation.text,
 
     lineSeries,
     barRows,
