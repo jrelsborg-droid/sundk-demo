@@ -1,5 +1,6 @@
 "use client";
 
+import PageBackground from "@/components/layout/PageBackground";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type {
@@ -590,21 +591,8 @@ export default function HomepageClient({
   };
 
   return (
-    <main className="relative min-h-screen bg-slate-50/80 text-slate-900">
-      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(186,230,253,0.85),transparent_30%),radial-gradient(circle_at_top_right,rgba(224,231,255,0.85),transparent_28%),linear-gradient(135deg,#f8fbff_0%,#f5f8fc_45%,#f4f6fb_100%)]" />
-
-        <div className="absolute right-[-80px] top-[-10px] h-[560px] w-[760px] opacity-[0.22]">
-          <div
-            className="absolute inset-0 bg-contain bg-no-repeat bg-right-top"
-            style={{ backgroundImage: "url('/bg-analyst.png')" }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-l from-transparent via-slate-50/35 to-slate-50/95" />
-          <div className="absolute inset-0 [mask-image:radial-gradient(circle_at_center,black_38%,transparent_85%)] bg-white/30" />
-        </div>
-      </div>
-
-      <div className="relative z-10 mx-auto max-w-6xl px-5 pb-24">
+  <PageBackground>
+    <div className="mx-auto max-w-6xl px-5 pb-24">
         <header className="sticky top-0 z-30 pt-4">
           <div className="rounded-[28px] border border-slate-200/80 bg-white/72 px-5 py-4 shadow-[0_10px_35px_rgba(15,23,42,0.07)] backdrop-blur-xl">
             <div className="flex items-center justify-between gap-4">
@@ -648,7 +636,7 @@ export default function HomepageClient({
               National kvalitetsindsigt
             </div>
             <h1 className="mt-4 text-5xl font-semibold leading-[0.92] tracking-tight text-slate-950 sm:text-6xl">
-              Offentlig kvalitetsindsigt
+              Vi har data. Du får indsigt og skaber forandring
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-700">
               70+ kliniske kvalitetsdatabaser. Se hvem der ligger bedst, hvem der flytter
@@ -1028,6 +1016,6 @@ export default function HomepageClient({
           </GlassCard>
         </section>
       </div>
-    </main>
+    </PageBackground>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PageBackground from "@/components/layout/PageBackground";
 import TopNav from "@/components/navigation/TopNav";
 import HospitalFilters from "@/components/hospital/HospitalFilters";
 import { loadHospitalData } from "@/lib/data/loadHospitalData";
@@ -83,7 +84,7 @@ export default async function HospitalPage({ params, searchParams }: PageProps) 
   });
 
   return (
-    <main className="min-h-screen bg-[#f3f6fb] text-slate-900">
+    <PageBackground>
       
 <TopNav
   databases={data.allDatabases}
@@ -575,6 +576,6 @@ export default async function HospitalPage({ params, searchParams }: PageProps) 
           </div>
         </section>
       </div>
-    </main>
+    </PageBackground>
   );
 }

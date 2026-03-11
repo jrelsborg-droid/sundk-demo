@@ -179,7 +179,7 @@ const yAxisTicks = Array.from({ length: 5 }, (_, i) => {
         </div>
       </div>
 
-      <div className="relative z-10 mx-auto max-w-7xl px-6 pb-24 pt-12">
+      <div className="mx-auto max-w-7xl px-6 pb-24 pt-12">
 <section>
   <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1.2fr_0.95fr] lg:items-start">
     <div className="max-w-3xl">
