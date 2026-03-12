@@ -1,5 +1,6 @@
 "use client";
 
+import TopNav from "@/components/navigation/TopNav";
 import PageBackground from "@/components/layout/PageBackground";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -593,42 +594,12 @@ export default function HomepageClient({
   return (
   <PageBackground>
     <div className="mx-auto max-w-6xl px-5 pb-24">
-        <header className="sticky top-0 z-30 pt-4">
-          <div className="rounded-[28px] border border-slate-200/80 bg-white/72 px-5 py-4 shadow-[0_10px_35px_rgba(15,23,42,0.07)] backdrop-blur-xl">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white shadow-sm">
-                  SK
-                </div>
-                <div>
-                  <div className="text-sm font-semibold tracking-tight text-slate-950">
-                    SundK Insight
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    Offentlig kvalitetsindsigt · demo
-                  </div>
-                </div>
-                <div className="hidden md:inline-flex rounded-full border border-sky-100 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-sky-700">
-                  Beta
-                </div>
-              </div>
-
-              <nav className="hidden items-center gap-2 md:flex">
-                <MenuDatabases databases={databases} />
-                <MenuHospitals hospitalsByRegion={hospitalsByRegion} />
-                <MenuDataOgRapporter databases={databases} />
-              </nav>
-
-              <div className="hidden items-center gap-2 rounded-full border border-slate-200 bg-white/85 px-3 py-2 shadow-sm backdrop-blur sm:flex">
-                <span className="text-sm text-slate-400">🔎</span>
-                <input
-                  className="w-44 bg-transparent text-sm outline-none placeholder:text-slate-400"
-                  placeholder="Søg"
-                />
-              </div>
-            </div>
-          </div>
-        </header>
+      
+      <TopNav
+        databases={databases}
+        hospitals={hospitals}
+        active="home"
+      />
 
         <section className="pt-8">
           <div className="max-w-4xl">

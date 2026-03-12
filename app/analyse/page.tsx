@@ -7,6 +7,7 @@ import TimeSeriesChart from "@/components/analyse/charts/TimeSeriesChart";
 import BarChart from "@/components/analyse/charts/BarChart";
 import TableView from "@/components/analyse/charts/TableView";
 import { getAnalyseData } from "@/lib/analyse/getAnalyseData";
+import AnalyseExportActions from "@/components/analyse/AnalyseExportActions";
 
 type PageProps = {
   searchParams?: Promise<{
@@ -69,30 +70,41 @@ export default async function AnalysePage({ searchParams }: PageProps) {
           </div>
 
           <div className="space-y-6">
-            {data.state.vis === "tidsserie" && (
-              <TimeSeriesChart
-                title={data.chartTitle}
-                subtitle={data.chartSubtitle}
-                enhed={data.selectedIndikator.enhed}
-                series={data.lineSeries}
-              />
-            )}
+            <div id="analyse-visual-output">
+              {data.state.vis === "tidsserie" && (
+                <TimeSeriesChart
+                  title={data.chartTitle}
+                  subtitle={data.chartSubtitle}
+                  enhed={data.selectedIndikator.enhed}
+                  series={data.lineSeries}
+                />
+              )}
 
-            {data.state.vis === "bar" && (
-              <BarChart
-                title={data.chartTitle}
-                subtitle={`${data.chartSubtitle} · ${data.state.toYear}`}
-                rows={data.barRows}
-              />
-            )}
+              {data.state.vis === "bar" && (
+                <BarChart
+                  title={data.chartTitle}
+                  subtitle={`${data.chartSubtitle} · ${data.state.toYear}`}
+                  rows={data.barRows}
+                />
+              )}
 
-            {data.state.vis === "tabel" && (
-              <TableView
-                title={data.chartTitle}
-                subtitle={data.chartSubtitle}
-                rows={data.tableRows}
-              />
-            )}
+              {data.state.vis === "tabel" && (
+                <TableView
+                  title={data.chartTitle}
+                  subtitle={data.chartSubtitle}
+                  rows={data.tableRows}
+                />
+              )}
+            </div>
+
+            <AnalyseExportActions
+              chartElementId="analyse-visual-output"
+              title={data.chartTitle}
+              databaseName={data.selectedDatabase.database_navn}
+              indicatorName={data.selectedIndikator.indikator_navn}
+              visType={data.state.vis}
+              tableRows={data.tableRows}
+            />
 
             <div className="rounded-[28px] border border-slate-200/80 bg-white/76 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl">
               <div className="text-sm font-medium text-slate-500">Aktuel analyse</div>

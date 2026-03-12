@@ -194,13 +194,14 @@ export default function AnalyseFilters({
 
           <div>
             <label className="mb-2 block text-sm text-slate-600">Sammenlign på</label>
-            <select
-              value={state.niveau}
-              onChange={(e) =>
-                updateParams({
-                  niveau: e.target.value,
-                })
-              }
+        <select
+          value={state.niveau}
+          onChange={(e) =>
+            updateParams({
+              niveau: e.target.value,
+              entities: null,
+            })
+          }
               className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none"
             >
               {availableLevels.map((l) => (
