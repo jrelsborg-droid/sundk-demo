@@ -11,6 +11,7 @@ type QuadrantRow = {
   rang: number;
   enhed: string;
   retning: "lavere_bedre" | "hoejere_bedre";
+  antalForloeb: number;
 };
 
 type DatabaseQuadrantProps = {
@@ -61,6 +62,22 @@ export default function DatabaseQuadrant({
     y: number;
   } | null>(null);
 
+  const maxAntalForloeb = useMemo(
+    () => Math.max(...rows.map((r) => r.antalForloeb || 0), 1),
+    [rows]
+  );
+
+  function getBubbleSize(antalForloeb: number) {
+    const minSize = 14;
+    const maxSize = 34;
+
+    return (
+      minSize +
+      (Math.sqrt(antalForloeb) / Math.sqrt(maxAntalForloeb)) *
+        (maxSize - minSize)
+    );
+  }
+
   const points = useMemo(() => {
     const valid = rows.filter((r) => Number.isFinite(r.vaerdi) && Number.isFinite(r.forbedring));
     const minVal = valid.length ? Math.min(...valid.map((r) => r.vaerdi)) : 0;
@@ -93,24 +110,30 @@ export default function DatabaseQuadrant({
         Kræver opmærksomhed
       </div>
 
-      {points.map((p) => (
-        <button
-          key={p.id}
-          onMouseEnter={() => setHovered({ point: p, x: p.x, y: p.y })}
-          onMouseLeave={() => setHovered(null)}
-          className="absolute h-4 w-4 rounded-full border border-sky-500/60 bg-sky-400/80 shadow-sm transition-transform hover:scale-125"
-          style={{
-            left: `${p.x}%`,
-            bottom: `${p.y}%`,
-            transform: "translate(-50%, 50%)",
-          }}
-          aria-label={p.navn}
-        />
-      ))}
+      {points.map((p) => {
+        const size = getBubbleSize(p.antalForloeb);
+
+        return (
+          <button
+            key={p.id}
+            onMouseEnter={() => setHovered({ point: p, x: p.x, y: p.y })}
+            onMouseLeave={() => setHovered(null)}
+            className="absolute rounded-full border border-sky-500/60 bg-sky-400/80 shadow-sm transition-transform hover:scale-110"
+            style={{
+              left: `${p.x}%`,
+              bottom: `${p.y}%`,
+              width: `${size}px`,
+              height: `${size}px`,
+              transform: "translate(-50%, 50%)",
+            }}
+            aria-label={p.navn}
+          />
+        );
+      })}
 
       {hovered && (
         <div
-          className="pointer-events-none absolute z-20 w-[260px] rounded-[24px] border border-slate-200 bg-white/96 px-4 py-3 shadow-2xl backdrop-blur-xl"
+          className="pointer-events-none absolute z-20 w-[300px] rounded-[24px] border border-slate-200 bg-white/96 px-4 py-3 shadow-2xl backdrop-blur-xl"
           style={{
             left: `${hovered.x}%`,
             bottom: hovered.y > 25 ? `${hovered.y - 8}%` : `${hovered.y + 8}%`,
@@ -120,7 +143,7 @@ export default function DatabaseQuadrant({
           <div className="text-sm font-semibold text-slate-950">{hovered.point.navn}</div>
           <div className="text-xs text-slate-500">{hovered.point.region}</div>
 
-          <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
+          <div className="mt-3 grid grid-cols-3 gap-4 text-sm">
             <div>
               <div className="text-xs text-slate-500">Niveau</div>
               <div className="font-medium text-slate-900">
@@ -138,6 +161,12 @@ export default function DatabaseQuadrant({
                 )}
               </div>
             </div>
+            <div>
+              <div className="text-xs text-slate-500">Forløb</div>
+              <div className="font-medium text-slate-900">
+                {hovered.point.antalForloeb.toLocaleString("da-DK")}
+              </div>
+            </div>
           </div>
 
           <div className="mt-3 border-t border-slate-100 pt-2 text-[11px] text-slate-500">
@@ -145,6 +174,10 @@ export default function DatabaseQuadrant({
           </div>
         </div>
       )}
+
+      <div className="absolute right-4 bottom-2 text-xs text-slate-400">
+        Boblestørrelse = antal forløb
+      </div>
 
       <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-slate-500">
         Forbedring siden baseline

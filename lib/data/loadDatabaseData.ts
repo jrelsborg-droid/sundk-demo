@@ -76,6 +76,7 @@ type QuadrantRow = {
   rang: number;
   enhed: string;
   retning: Retning;
+  antalForloeb: number;
 };
 
 type HospitalPerformanceRow = {
@@ -429,6 +430,7 @@ export function loadDatabaseData(
       rang: r.rang_hospital,
       enhed: selectedIndikator.enhed,
       retning: selectedIndikator.retning,
+      antalForloeb: r.antal_forloeb,
     }));
 
   const hospitalPerformanceRows: HospitalPerformanceRow[] = [...latestRows]

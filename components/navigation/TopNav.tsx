@@ -14,9 +14,61 @@ type HospitalDimRow = {
   hospital_navn: string;
 };
 
+type ReportLink = {
+  title: string;
+  href: string;
+};
+
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
+
+const AARSRAPPORTER: ReportLink[] = [
+  {
+    title: "Akutdatabasen",
+    href: "https://www.sundk.dk/media/u3qc2scp/dah_aarsrapport-2024.pdf",
+  },
+  {
+    title: "Dansk Apopleksidatabase",
+    href: "https://www.sundk.dk/media/c2vlyly0/danstroke_aarsrapport-2024_til-offentliggoerelse_300625.pdf",
+  },
+  {
+    title: "Dansk Brystkræftdatabase",
+    href: "https://www.sundk.dk/media/l2rp4h4c/dbcg-a-rsrapport-2024_offentliggjort-version-20250627.pdf",
+  },
+  {
+    title: "Dansk Diabetesdatabase",
+    href: "https://www.sundk.dk/media/qytheabl/dansk-diabetes-database-aarsrapport-2024-offentliggjort-version-20250627.pdf",
+  },
+  {
+    title: "Dansk Hjerteinfarktdatabase",
+    href: "https://www.sundk.dk/media/znxf22yo/dhreg_aarsrapport-2024_20250627_offentliggjort-version.pdf",
+  },
+  {
+    title: "Dansk Hoftefrakturdatabase",
+    href: "https://www.sundk.dk/media/fz0bgm2m/dhr_aarsrapport_2024_udgivet_2025_offentliggjort-version.pdf",
+  },
+  {
+    title: "Dansk Knæalloplastikdatabase",
+    href: "https://data-sundk.dk/aarsrapporter/dkr/2024/",
+  },
+  {
+    title: "Dansk Kolorektalcancer Database",
+    href: "https://data-sundk.dk/aarsrapporter/dccg/2024/",
+  },
+  {
+    title: "Dansk Lungecancer Database",
+    href: "https://www.sundk.dk/media/cadgkmwq/dlcr-aarsrapport-2024-offentliggjort-version-07-08-2025.pdf",
+  },
+  {
+    title: "Dansk Psykiatridatabase",
+    href: "https://www.sundk.dk/media/jp2lkqhl/aarsrapport_skizo_2024-25_offentlig_v3.pdf",
+  },
+  {
+    title: "Intensivdatabasen",
+    href: "https://www.sundk.dk/media/fiddbcak/did_aarsrapport_2024_endelig-version.pdf",
+  },
+].sort((a, b) => a.title.localeCompare(b.title, "da"));
 
 function MenuDatabases({
   databases,
@@ -85,11 +137,7 @@ function MenuHospitals({
   );
 }
 
-function MenuDataOgRapporter({
-  databases,
-}: {
-  databases: DatabaseDimRow[];
-}) {
+function MenuDataOgRapporter() {
   return (
     <div className="relative group">
       <button className="rounded-full px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-white/70 hover:text-slate-950">
@@ -110,19 +158,22 @@ function MenuDataOgRapporter({
             <span className="text-slate-400">›</span>
           </button>
 
-          <div className="invisible absolute left-full top-0 z-[80] ml-2 w-80 rounded-3xl border border-slate-200 bg-white/95 p-3 opacity-0 shadow-2xl backdrop-blur-xl transition-all duration-200 group-hover/reports:visible group-hover/reports:opacity-100">
+          <div className="invisible absolute left-full top-0 z-[80] ml-2 w-[360px] rounded-3xl border border-slate-200 bg-white/95 p-3 opacity-0 shadow-2xl backdrop-blur-xl transition-all duration-200 group-hover/reports:visible group-hover/reports:opacity-100">
             <div className="max-h-80 overflow-auto">
-              {databases
-                .slice()
-                .sort((a, b) => a.database_navn.localeCompare(b.database_navn, "da"))
-                .map((db) => (
-                  <button
-                    key={db.database_id}
-                    className="block w-full rounded-2xl px-3 py-2.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100"
-                  >
-                    {db.database_navn}
-                  </button>
-                ))}
+              {AARSRAPPORTER.map((report) => (
+                <a
+                  key={report.title}
+                  href={report.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100"
+                >
+                  <span className="pr-3">{report.title}</span>
+                  <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                    PDF
+                  </span>
+                </a>
+              ))}
             </div>
           </div>
         </div>
@@ -207,7 +258,7 @@ export default function TopNav({
                 active === "reports" && "bg-slate-100"
               )}
             >
-              <MenuDataOgRapporter databases={databases} />
+              <MenuDataOgRapporter />
             </div>
           </nav>
 

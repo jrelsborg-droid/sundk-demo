@@ -20,6 +20,7 @@ type LevelRow = {
   enhed: string;
   retning: "lavere_bedre" | "hoejere_bedre";
   typeLabel: "Hospital" | "Afdeling";
+  antalForloeb?: number;
 };
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -350,11 +351,32 @@ function MagiskKvadrant({
     y: number;
   } | null>(null);
 
-  const valid = rows.filter((r) => Number.isFinite(r.vaerdi) && Number.isFinite(r.forbedring));
+  const valid = rows.filter(
+    (r) => Number.isFinite(r.vaerdi) && Number.isFinite(r.forbedring)
+  );
+
   const minValue = valid.length ? Math.min(...valid.map((r) => r.vaerdi)) : 0;
   const maxValue = valid.length ? Math.max(...valid.map((r) => r.vaerdi)) : 0;
   const minImp = valid.length ? Math.min(...valid.map((r) => r.forbedring)) : 0;
   const maxImp = valid.length ? Math.max(...valid.map((r) => r.forbedring)) : 0;
+
+  const maxAntalForloeb = Math.max(
+    ...valid.map((r) => r.antalForloeb || 0),
+    1
+  );
+
+  function getBubbleSize(antalForloeb?: number) {
+    const minSize = 14;
+    const maxSize = 34;
+
+    if (!antalForloeb || antalForloeb <= 0) return 16;
+
+    return (
+      minSize +
+      (Math.sqrt(antalForloeb) / Math.sqrt(maxAntalForloeb)) *
+        (maxSize - minSize)
+    );
+  }
 
   const points = valid.map((r) => ({
     ...r,
@@ -363,97 +385,108 @@ function MagiskKvadrant({
   }));
 
   return (
-    <GlassCard accent="sky" className="p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <CardEyebrow tone="sky">Performancekort</CardEyebrow>
-          <div className="mt-3 text-[30px] font-semibold tracking-tight text-slate-950">
-            Magisk Kvadrant
-          </div>
-          <div className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            Øverst = bedre niveau. Mod højre = større forbedring. Hver bobbel er{" "}
-            {visning === "hospital" ? "et hospital" : "en afdeling"}.
-          </div>
-        </div>
+    <div className="relative h-[440px] rounded-[24px] border border-slate-200 bg-white/60 p-4">
+      <div className="absolute inset-x-4 top-1/2 border-t border-dashed border-slate-300" />
+      <div className="absolute inset-y-4 left-1/2 border-l border-dashed border-slate-300" />
+
+      <div className="absolute left-6 top-6 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[12px] font-medium text-emerald-700">
+        Stærke frontløbere
+      </div>
+      <div className="absolute right-6 top-6 rounded-full border border-sky-100 bg-sky-50 px-3 py-1.5 text-[12px] font-medium text-sky-700">
+        Forbedrer sig og ligger godt
+      </div>
+      <div className="absolute bottom-6 left-6 rounded-full border border-amber-100 bg-amber-50 px-3 py-1.5 text-[12px] font-medium text-amber-700">
+        Under udvikling
+      </div>
+      <div className="absolute bottom-6 right-6 rounded-full border border-rose-100 bg-rose-50 px-3 py-1.5 text-[12px] font-medium text-rose-700">
+        Kræver opmærksomhed
       </div>
 
-      <div className="mt-6 rounded-[24px] border border-slate-200 bg-white/60 p-4">
-        <div className="relative h-[320px] w-full rounded-2xl">
-          <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-slate-300" />
-          <div className="absolute inset-y-0 left-1/2 border-l border-dashed border-slate-300" />
+      {points.map((p) => {
+        const size = visning === "hospital" ? getBubbleSize(p.antalForloeb) : 16;
 
-          <div className="absolute left-2 top-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[12px] font-medium text-emerald-700">
-            Stærke frontløbere
+        return (
+          <button
+            key={p.id}
+            onMouseEnter={() => setHovered({ point: p, x: p.x, y: p.y })}
+            onMouseLeave={() => setHovered(null)}
+            className="absolute rounded-full border border-sky-500/60 bg-sky-400/80 shadow-sm transition-transform hover:scale-110"
+            style={{
+              left: `${p.x}%`,
+              bottom: `${p.y}%`,
+              width: `${size}px`,
+              height: `${size}px`,
+              transform: "translate(-50%, 50%)",
+            }}
+            aria-label={p.navn}
+          />
+        );
+      })}
+
+      {hovered && (
+        <div
+          className="pointer-events-none absolute z-20 w-[300px] rounded-[24px] border border-slate-200 bg-white/96 px-4 py-3 shadow-2xl backdrop-blur-xl"
+          style={{
+            left: `${hovered.x}%`,
+            bottom: hovered.y > 25 ? `${hovered.y - 8}%` : `${hovered.y + 8}%`,
+            transform: "translate(-50%, 50%)",
+          }}
+        >
+          <div className="text-sm font-semibold text-slate-950">
+            {hovered.point.navn}
           </div>
-          <div className="absolute right-2 top-2 rounded-full border border-sky-100 bg-sky-50 px-3 py-1.5 text-[12px] font-medium text-sky-700">
-            Forbedrer sig og ligger godt
-          </div>
-          <div className="absolute bottom-2 left-2 rounded-full border border-amber-100 bg-amber-50 px-3 py-1.5 text-[12px] font-medium text-amber-700">
-            Under udvikling
-          </div>
-          <div className="absolute bottom-2 right-2 rounded-full border border-rose-100 bg-rose-50 px-3 py-1.5 text-[12px] font-medium text-rose-700">
-            Kræver opmærksomhed
+          <div className="text-xs text-slate-500">
+            {hovered.point.region} · {hovered.point.typeLabel}
           </div>
 
-          {points.map((p) => (
-            <button
-              key={p.id}
-              onMouseEnter={() => setHovered({ point: p, x: p.x, y: p.y })}
-              onMouseLeave={() => setHovered(null)}
-              className="absolute h-4 w-4 rounded-full border border-sky-500/60 bg-sky-400/75 shadow-sm transition-transform hover:scale-125"
-              style={{
-                left: `${p.x}%`,
-                bottom: `${p.y}%`,
-                transform: "translate(-50%, 50%)",
-              }}
-            />
-          ))}
-
-          {hovered && (
-            <div
-              className="pointer-events-none absolute z-20 w-[260px] rounded-[24px] border border-slate-200 bg-white/96 px-4 py-3 shadow-2xl backdrop-blur-xl"
-              style={{
-                left: `${hovered.x}%`,
-                bottom: hovered.y > 25 ? `${hovered.y - 8}%` : `${hovered.y + 8}%`,
-                transform: "translate(-50%, 50%)",
-              }}
-            >
-              <div className="text-sm font-semibold text-slate-950">{hovered.point.navn}</div>
-              <div className="text-xs text-slate-500">{hovered.point.region}</div>
-              <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <div className="text-xs text-slate-500">Niveau</div>
-                  <div className="font-medium text-slate-900">
-                    {hovered.point.vaerdi.toFixed(1)}
-                    {formatUnit(hovered.point.enhed)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500">Ændring siden 2018</div>
-                  <div className="font-medium text-slate-900">
-                    {formatImprovement(
-                      hovered.point.forbedring,
-                      hovered.point.enhed,
-                      hovered.point.retning
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="mt-3 border-t border-slate-100 pt-2 text-[11px] text-slate-500">
-                {indikatorNavn}
+          <div className="mt-3 grid grid-cols-3 gap-4 text-sm">
+            <div>
+              <div className="text-xs text-slate-500">Niveau</div>
+              <div className="font-medium text-slate-900">
+                {hovered.point.vaerdi.toFixed(1)}
+                {formatUnit(hovered.point.enhed)}
               </div>
             </div>
-          )}
 
-          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs text-slate-500">
-            Forbedring siden 2018 ⟶ bedre
+            <div>
+              <div className="text-xs text-slate-500">Ændring</div>
+              <div className="font-medium text-slate-900">
+                {formatImprovement(
+                  hovered.point.forbedring,
+                  hovered.point.enhed,
+                  hovered.point.retning
+                )}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs text-slate-500">Forløb</div>
+              <div className="font-medium text-slate-900">
+                {hovered.point.antalForloeb?.toLocaleString("da-DK") ?? "—"}
+              </div>
+            </div>
           </div>
-          <div className="absolute left-2 top-1/2 -translate-y-1/2 -rotate-90 text-xs text-slate-500">
-            Nuværende niveau ⟶ bedre
+
+          <div className="mt-3 border-t border-slate-100 pt-2 text-[11px] text-slate-500">
+            {indikatorNavn}
           </div>
         </div>
+      )}
+
+      {visning === "hospital" && (
+        <div className="absolute right-4 bottom-2 text-xs text-slate-400">
+          Boblestørrelse = antal forløb
+        </div>
+      )}
+
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-slate-500">
+        Forbedring siden baseline
       </div>
-    </GlassCard>
+
+      <div className="absolute left-2 top-1/2 -translate-y-1/2 -rotate-90 text-xs text-slate-500">
+        Nuværende niveau
+      </div>
+    </div>
   );
 }
 
@@ -505,19 +538,20 @@ export default function HomepageClient({
 
   const selectedIndicatorName = selectedIndicator?.indikator_navn ?? selectedIndikatorId;
 
-  const kvadrantRows: LevelRow[] =
-    kvadrantVisning === "hospital"
-      ? hospitalView.map((r) => ({
-          id: r.hospital_id,
-          navn: r.hospital_navn,
-          region: r.region,
-          vaerdi: r.vaerdi_hospital,
-          forbedring: r.forbedring_siden_baseline_hospital,
-          rang: r.rang_hospital,
-          enhed: r.enhed,
-          retning: r.retning,
-          typeLabel: "Hospital",
-        }))
+const kvadrantRows: LevelRow[] =
+  kvadrantVisning === "hospital"
+    ? hospitalView.map((r) => ({
+        id: r.hospital_id,
+        navn: r.hospital_navn,
+        region: r.region,
+        vaerdi: r.vaerdi_hospital,
+        forbedring: r.forbedring_siden_baseline_hospital,
+        rang: r.rang_hospital,
+        enhed: r.enhed,
+        retning: r.retning,
+        typeLabel: "Hospital",
+        antalForloeb: r.antal_forloeb_hospital,
+      }))
       : afdelingView.map((r) => ({
           id: r.afdeling_id,
           navn: r.afdeling_navn,
@@ -528,6 +562,7 @@ export default function HomepageClient({
           enhed: r.enhed,
           retning: r.retning,
           typeLabel: "Afdeling",
+          antalForloeb: r.antal_forloeb,
         }));
 
   const activeRows = kvadrantRows;
