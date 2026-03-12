@@ -66,14 +66,22 @@ export default function TimeSeriesChart({
     "rgb(34 197 94)",
   ];
 
+  // plotområde i svg-koordinater
+  const plotLeft = 8;
+  const plotRight = 154;
+  const plotTop = 6;
+  const plotBottom = 86;
+  const plotWidth = plotRight - plotLeft;
+  const plotHeight = plotBottom - plotTop;
+
   function xForYear(aar: number) {
-    if (allYears.length <= 1) return 50;
+    if (allYears.length <= 1) return plotLeft + plotWidth / 2;
     const index = allYears.indexOf(aar);
-    return (index / (allYears.length - 1)) * 100;
+    return plotLeft + (index / (allYears.length - 1)) * plotWidth;
   }
 
   function yForValue(value: number) {
-    return 100 - ((value - minY) / yRange) * 100;
+    return plotTop + (1 - (value - minY) / yRange) * plotHeight;
   }
 
   const axisTicks = 5;
@@ -98,13 +106,15 @@ export default function TimeSeriesChart({
       </div>
 
       <div className="mt-6 rounded-[24px] border border-slate-200 bg-white/60 p-4">
-        <div className="grid grid-cols-[56px_1fr] gap-3">
+        <div className="grid grid-cols-[56px_1fr] gap-2">
           <div className="relative h-[360px]">
             {axisValues.map((tick, idx) => (
               <div
                 key={idx}
                 className="absolute right-0 -translate-y-1/2 text-[11px] text-slate-500"
-                style={{ top: `${(idx / (axisTicks - 1)) * 100}%` }}
+                style={{
+                  top: `${((plotTop + (idx / (axisTicks - 1)) * plotHeight) / 100) * 100}%`,
+                }}
               >
                 {formatValue(tick, enhed)}
               </div>
@@ -112,9 +122,38 @@ export default function TimeSeriesChart({
           </div>
 
           <div className="relative h-[360px]">
-            <div className="absolute inset-0 rounded-[20px] bg-[linear-gradient(to_right,rgba(148,163,184,0.10)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.10)_1px,transparent_1px)] bg-[size:48px_48px]" />
+            <svg viewBox="0 0 160 100" className="relative z-10 h-full w-full overflow-visible">
+              {/* baggrundsgitter */}
+              {Array.from({ length: 10 }).map((_, i) => {
+                const x = plotLeft + (i / 9) * plotWidth;
+                return (
+                  <line
+                    key={`v-${i}`}
+                    x1={x}
+                    y1={plotTop}
+                    x2={x}
+                    y2={plotBottom}
+                    stroke="rgba(148,163,184,0.14)"
+                    strokeWidth="0.25"
+                  />
+                );
+              })}
 
-            <svg viewBox="0 0 100 100" className="relative z-10 h-full w-full overflow-visible">
+              {Array.from({ length: 6 }).map((_, i) => {
+                const y = plotTop + (i / 5) * plotHeight;
+                return (
+                  <line
+                    key={`h-${i}`}
+                    x1={plotLeft}
+                    y1={y}
+                    x2={plotRight}
+                    y2={y}
+                    stroke="rgba(148,163,184,0.14)"
+                    strokeWidth="0.25"
+                  />
+                );
+              })}
+
               {series.map((s, idx) => {
                 const color = colors[idx % colors.length];
                 const points = s.points.map((p) => `${xForYear(p.aar)},${yForValue(p.vaerdi)}`);
@@ -134,12 +173,7 @@ export default function TimeSeriesChart({
 
                       return (
                         <g key={`${s.id}-${p.aar}`}>
-                          <circle
-                            cx={x}
-                            cy={y}
-                            r="1.7"
-                            fill={color}
-                          />
+                          <circle cx={x} cy={y} r="1.7" fill={color} />
                           <circle
                             cx={x}
                             cy={y}
@@ -163,28 +197,37 @@ export default function TimeSeriesChart({
                   </g>
                 );
               })}
+
+              {/* x-akse labels i samme koordinatsystem */}
+              {allYears.map((year) => (
+                <text
+                  key={year}
+                  x={xForYear(year)}
+                  y={97}
+                  textAnchor="middle"
+                  fontSize="3"
+                  fill="rgb(100 116 139)"
+                >
+                  {year}
+                </text>
+              ))}
             </svg>
 
-            {hovered && (
-              <div
-                className="pointer-events-none absolute z-20 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-xl"
-                style={{
-                  left: `calc(${hovered.x}% + 10px)`,
-                  top: `calc(${hovered.y}% - 10px)`,
-                }}
-              >
+{hovered && (
+  <div
+    className="pointer-events-none absolute z-20 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-xl"
+    style={{
+      left: `${(hovered.x / 160) * 100}%`,
+      top: `${hovered.y}%`,
+      transform: "translate(10px, -12px)",
+    }}
+  >
                 <div className="font-semibold text-slate-900">{hovered.seriesName}</div>
                 <div>År: {hovered.year}</div>
                 <div>Værdi: {formatValue(hovered.value, enhed)}</div>
                 {hovered.rang != null && <div>Rang: {Math.round(hovered.rang)}</div>}
               </div>
             )}
-
-            <div className="pointer-events-none absolute inset-x-4 bottom-0 flex justify-between text-[11px] text-slate-500">
-              {allYears.map((year) => (
-                <span key={year}>{year}</span>
-              ))}
-            </div>
           </div>
         </div>
 

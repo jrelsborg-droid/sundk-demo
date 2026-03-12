@@ -24,7 +24,7 @@ export default function AnalysePresetBar({
       }
     });
 
-    router.replace(`${pathname}?${params.toString()}`);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
   const presets = [

@@ -67,7 +67,7 @@ export default function AnalyseFilters({
       }
     });
 
-    router.replace(`${pathname}?${params.toString()}`);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
   function toggleEntity(entityId: string) {
@@ -157,7 +157,6 @@ export default function AnalyseFilters({
                 updateParams({
                   database: e.target.value,
                   indikator: null,
-                  entities: null,
                 })
               }
               className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none"
@@ -177,7 +176,6 @@ export default function AnalyseFilters({
               onChange={(e) =>
                 updateParams({
                   indikator: e.target.value,
-                  entities: null,
                 })
               }
               className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none"
@@ -201,7 +199,6 @@ export default function AnalyseFilters({
               onChange={(e) =>
                 updateParams({
                   niveau: e.target.value,
-                  entities: null,
                 })
               }
               className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none"

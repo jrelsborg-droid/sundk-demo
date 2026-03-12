@@ -390,15 +390,17 @@ export function getAnalyseData(query?: AnalyseQuery): AnalysePageData {
   }
 
   const requestedEntityIds = parseEntities(query?.entities);
+  const hadExplicitEntities = requestedEntityIds.length > 0;
+
   let entityIds = requestedEntityIds.filter((id) =>
     availableEntities.some((e) => e.id === id)
   );
 
-  if (niveau === "hospital" && entityIds.length === 0) {
+  if (!hadExplicitEntities && niveau === "hospital" && entityIds.length === 0) {
     entityIds = availableEntities.slice(0, 3).map((e) => e.id);
   }
 
-  if (niveau === "afdeling" && entityIds.length === 0) {
+  if (!hadExplicitEntities && niveau === "afdeling" && entityIds.length === 0) {
     entityIds = availableEntities.slice(0, 5).map((e) => e.id);
   }
 
