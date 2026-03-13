@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 
 type DatabaseDimRow = {
   database_id: string;
@@ -17,6 +18,15 @@ type HospitalDimRow = {
 type ReportLink = {
   title: string;
   href: string;
+};
+
+type SearchItem = {
+  id: string;
+  label: string;
+  href: string;
+  type: "database" | "hospital" | "rapport" | "side";
+  external?: boolean;
+  meta?: string;
 };
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -209,6 +219,67 @@ export default function TopNav({
         ] as [string, HospitalDimRow[]]
     );
 
+const [query, setQuery] = useState("");
+
+const searchItems = useMemo<SearchItem[]>(() => {
+  const databaseItems: SearchItem[] = databases.map((db) => ({
+    id: `db-${db.database_id}`,
+    label: db.database_navn,
+    href: `/database/${db.database_id}`,
+    type: "database",
+    meta: db.speciale,
+  }));
+
+  const hospitalItems: SearchItem[] = hospitals.map((h) => ({
+    id: `hospital-${h.hospital_id}`,
+    label: h.hospital_navn,
+    href: `/hospital/${h.hospital_id}`,
+    type: "hospital",
+    meta: h.region,
+  }));
+
+  const reportItems: SearchItem[] = AARSRAPPORTER.map((r) => ({
+    id: `rapport-${r.title}`,
+    label: r.title,
+    href: r.href,
+    type: "rapport",
+    external: true,
+    meta: "Årsrapport",
+  }));
+
+  const pageItems: SearchItem[] = [
+    {
+      id: "side-analyse",
+      label: "Dyk ned i data",
+      href: "/analyse",
+      type: "side",
+      meta: "Analysebygger",
+    },
+    {
+      id: "side-inspiration",
+      label: "Inspiration fra klinikken",
+      href: "/inspiration",
+      type: "side",
+      meta: "Cases",
+    },
+  ];
+
+  return [...pageItems, ...databaseItems, ...hospitalItems, ...reportItems];
+}, [databases, hospitals]);
+
+const normalizedQuery = query.trim().toLowerCase();
+
+const filteredResults = useMemo(() => {
+  if (!normalizedQuery) return [];
+
+  return searchItems
+    .filter((item) => {
+      const haystack = `${item.label} ${item.meta ?? ""}`.toLowerCase();
+      return haystack.includes(normalizedQuery);
+    })
+    .slice(0, 8);
+}, [normalizedQuery, searchItems]);
+
   return (
     <div className="sticky top-4 z-[60] mx-auto max-w-[1440px] px-4 pt-4 md:px-6">
       <header className="rounded-[28px] border border-slate-200/80 bg-white/76 px-5 py-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl">
@@ -262,10 +333,68 @@ export default function TopNav({
             </div>
           </nav>
 
-          <div className="flex h-11 min-w-[180px] items-center rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-400 shadow-sm">
-            <span className="mr-2">🔎</span>
-            Søg
-          </div>
+<div className="relative min-w-[240px]">
+  <div className="flex h-11 items-center rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-600 shadow-sm">
+    <span className="mr-2 text-slate-400">🔎</span>
+    <input
+      type="text"
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      placeholder="Søg"
+      className="w-full bg-transparent outline-none placeholder:text-slate-400"
+    />
+  </div>
+
+  {normalizedQuery && (
+    <div className="absolute right-0 top-full z-[90] mt-2 w-[380px] overflow-hidden rounded-3xl border border-slate-200 bg-white/95 p-2 shadow-2xl backdrop-blur-xl">
+      {filteredResults.length > 0 ? (
+        <div className="max-h-96 overflow-auto">
+          {filteredResults.map((item) =>
+            item.external ? (
+              <a
+                key={item.id}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between rounded-2xl px-3 py-3 transition-colors hover:bg-slate-100"
+                onClick={() => setQuery("")}
+              >
+                <div>
+                  <div className="text-sm font-medium text-slate-900">{item.label}</div>
+                  {item.meta ? (
+                    <div className="text-xs text-slate-500">{item.meta}</div>
+                  ) : null}
+                </div>
+                <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                  {item.type}
+                </div>
+              </a>
+            ) : (
+              <Link
+                key={item.id}
+                href={item.href}
+                className="flex items-center justify-between rounded-2xl px-3 py-3 transition-colors hover:bg-slate-100"
+                onClick={() => setQuery("")}
+              >
+                <div>
+                  <div className="text-sm font-medium text-slate-900">{item.label}</div>
+                  {item.meta ? (
+                    <div className="text-xs text-slate-500">{item.meta}</div>
+                  ) : null}
+                </div>
+                <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                  {item.type}
+                </div>
+              </Link>
+            )
+          )}
+        </div>
+      ) : (
+        <div className="px-3 py-4 text-sm text-slate-500">Ingen resultater</div>
+      )}
+    </div>
+  )}
+</div>
         </div>
       </header>
     </div>

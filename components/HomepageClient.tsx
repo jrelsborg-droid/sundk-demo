@@ -4,6 +4,7 @@ import TopNav from "@/components/navigation/TopNav";
 import PageBackground from "@/components/layout/PageBackground";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import AnalyseBuilderTeaser from "@/components/sections/AnalyseBuilderTeaser";
 import type {
   DatabaseDimRow,
   HomepageData,
@@ -649,14 +650,7 @@ const kvadrantRows: LevelRow[] =
               sig mest, og hvor variationen fortsat er størst.
             </p>
 
-            <div className="mt-7 flex flex-wrap gap-3">
-              <button className="rounded-2xl border border-slate-200 bg-white/88 px-4 py-2.5 text-sm font-medium text-slate-900 shadow-sm transition-colors hover:bg-white">
-                Udforsk klinisk database
-              </button>
-              <button className="rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-800">
-                Start søgning
-              </button>
-            </div>
+
           </div>
         </section>
 
@@ -872,6 +866,10 @@ const kvadrantRows: LevelRow[] =
           </div>
         </section>
 
+<section className="mt-12">
+  <AnalyseBuilderTeaser />
+</section>
+
 <section className="mt-16">
   <SectionIntro
     eyebrow="Inspiration"
@@ -882,6 +880,7 @@ const kvadrantRows: LevelRow[] =
   <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-3">
 
     {/* FEATURED CASE */}
+  <Link href="/inspiration#komplikationer" className="block lg:col-span-2">
     <GlassCard hover accent="emerald" className="lg:col-span-2 overflow-hidden">
 
       <div className="relative h-64 w-full">
@@ -917,9 +916,10 @@ const kvadrantRows: LevelRow[] =
         </div>
       </div>
     </GlassCard>
-
+  </Link>
 
     {/* CASE 2 */}
+  <Link href="/inspiration#genindlaeggelser" className="block">
     <GlassCard hover accent="sky" className="overflow-hidden">
 
       <div className="relative h-40 w-full">
@@ -951,9 +951,10 @@ const kvadrantRows: LevelRow[] =
         </div>
       </div>
     </GlassCard>
-
+</Link>
 
     {/* CASE 3 */}
+  <Link href="/inspiration#kvalitetsdata" className="block">
     <GlassCard hover accent="amber" className="overflow-hidden">
 
       <div className="relative h-40 w-full">
@@ -984,6 +985,7 @@ const kvadrantRows: LevelRow[] =
         </div>
       </div>
     </GlassCard>
+</Link>
 
   </div>
 </section>
