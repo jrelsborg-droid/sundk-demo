@@ -1,12 +1,12 @@
 import Link from "next/link";
 import PageBackground from "@/components/layout/PageBackground";
 import TopNav from "@/components/navigation/TopNav";
-import HospitalFilters from "@/components/hospital/HospitalFilters";
+import HospitalTrendControls from "@/components/hospital/HospitalTrendControls";
 import { loadHospitalData } from "@/lib/data/loadHospitalData";
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ aar?: string; database?: string }>;
+  searchParams?: Promise<{ aar?: string; database?: string; indikator?: string }>;
 };
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -21,8 +21,58 @@ function formatSimpleValue(value: number | null, enhed?: string | null) {
   return value.toFixed(1);
 }
 
-function clamp01(value: number) {
-  return Math.max(0, Math.min(1, value));
+function safePct(
+  value: number | null,
+  min: number,
+  max: number,
+  invert = false,
+  fallback = 50
+) {
+  if (value == null) return fallback;
+  if (max === min) return fallback;
+  const raw = ((value - min) / (max - min)) * 100;
+  return invert ? 100 - raw : raw;
+}
+
+function getTooltipPlacement(x: number, y: number) {
+  const horizontal =
+    x > 82 ? "right-full mr-3" : x < 18 ? "left-5" : "left-5";
+  const vertical = y < 18 ? "top-0" : y > 82 ? "bottom-0" : "top-0";
+  return `${horizontal} ${vertical}`;
+}
+
+function getPerformanceTone(rank: number | null, populationSize: number) {
+  if (rank == null || populationSize <= 1) {
+    return {
+      card: "border-slate-200 bg-slate-50/70",
+      badge: "text-slate-500",
+      label: "Uafklaret",
+    };
+  }
+
+  const percentile = rank / populationSize;
+
+  if (percentile <= 0.25) {
+    return {
+      card: "border-emerald-100 bg-emerald-50/70",
+      badge: "text-emerald-700",
+      label: "Står stærkt",
+    };
+  }
+
+  if (percentile >= 0.75) {
+    return {
+      card: "border-rose-100 bg-rose-50/70",
+      badge: "text-rose-700",
+      label: "Kræver opmærksomhed",
+    };
+  }
+
+  return {
+    card: "border-amber-100 bg-amber-50/70",
+    badge: "text-amber-700",
+    label: "Blandet billede",
+  };
 }
 
 export default async function HospitalPage({ params, searchParams }: PageProps) {
@@ -30,8 +80,13 @@ export default async function HospitalPage({ params, searchParams }: PageProps) 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const data = await loadHospitalData(id, resolvedSearchParams);
 
-  const validLandscapeX = data.landscapeRows.map((r) => r.xForbedring).filter((v): v is number => v != null);
-  const validLandscapeY = data.landscapeRows.map((r) => r.yScore).filter((v): v is number => v != null);
+  const validLandscapeX = data.landscapeRows
+    .map((r) => r.xForbedring)
+    .filter((v): v is number => v != null);
+
+  const validLandscapeY = data.landscapeRows
+    .map((r) => r.yScore)
+    .filter((v): v is number => v != null);
 
   const minX = validLandscapeX.length ? Math.min(...validLandscapeX) : -1;
   const maxX = validLandscapeX.length ? Math.max(...validLandscapeX) : 1;
@@ -45,536 +100,707 @@ export default async function HospitalPage({ params, searchParams }: PageProps) 
   const trendMin = trendValues.length ? Math.min(...trendValues) : 0;
   const trendMax = trendValues.length ? Math.max(...trendValues) : 1;
 
-  const variationValues = data.departmentVariationRows
+  const trendTicks = 5;
+  const trendAxisValues = Array.from({ length: trendTicks }, (_, i) => {
+    const ratio = i / (trendTicks - 1);
+    return trendMax - ratio * (trendMax - trendMin);
+  });
+
+  const trendHospitalPoints = data.trendSeries.map((point) => ({
+    x: `${((point.aar - data.periodStart) / Math.max(1, data.periodEnd - data.periodStart)) * 100}%`,
+    y: `${safePct(point.hospitalValue, trendMin, trendMax, true)}%`,
+    value: point.hospitalValue,
+    aar: point.aar,
+  }));
+
+  const trendNationalPoints = data.trendSeries.map((point) => ({
+    x: `${((point.aar - data.periodStart) / Math.max(1, data.periodEnd - data.periodStart)) * 100}%`,
+    y: `${safePct(point.nationalValue, trendMin, trendMax, true)}%`,
+    value: point.nationalValue,
+    aar: point.aar,
+  }));
+
+  const trendBestPoints = data.trendSeries.map((point) => ({
+    x: `${((point.aar - data.periodStart) / Math.max(1, data.periodEnd - data.periodStart)) * 100}%`,
+    y: `${safePct(point.bestHospitalValue, trendMin, trendMax, true)}%`,
+    value: point.bestHospitalValue,
+    aar: point.aar,
+  }));
+
+  const indicatorOptions = data.selectedDatabaseId
+    ? data.indikatorCards.map((item) => ({
+        id: item.indikator_id,
+        navn: item.indikator_navn,
+        type: item.indikator_type,
+      }))
+    : [];
+
+  const focusedVariationRows =
+    data.selectedDatabaseId && data.selectedIndicatorId
+      ? data.departmentVariationRows
+          .filter(
+            (row) =>
+              row.database_id === data.selectedDatabaseId &&
+              row.indikator_id === data.selectedIndicatorId
+          )
+          .sort((a, b) => {
+            if (a.vaerdi == null && b.vaerdi == null) return 0;
+            if (a.vaerdi == null) return 1;
+            if (b.vaerdi == null) return -1;
+            return a.vaerdi - b.vaerdi;
+          })
+      : [];
+
+  const variationValues = focusedVariationRows
     .flatMap((d) => [d.ci_nedre, d.vaerdi, d.ci_oevre])
     .filter((v): v is number => v != null);
 
   const variationMin = variationValues.length ? Math.min(...variationValues) : 0;
   const variationMax = variationValues.length ? Math.max(...variationValues) : 1;
 
-  function xPct(value: number | null) {
-    if (value == null) return 50;
-    if (maxX === minX) return 50;
-    return ((value - minX) / (maxX - minX)) * 100;
+  function variationXPct(value: number | null) {
+    return safePct(value, variationMin, variationMax, false, 50);
   }
 
-  function yPct(value: number | null) {
-    if (value == null) return 50;
-    if (maxY === minY) return 50;
-    return 100 - ((value - minY) / (maxY - minY)) * 100;
-  }
+  const selectedIndicatorMeta =
+    data.selectedIndicatorId != null
+      ? data.indikatorCards.find((x) => x.indikator_id === data.selectedIndicatorId) ?? null
+      : null;
 
-  function trendYPct(value: number | null) {
-    if (value == null) return 50;
-    if (trendMax === trendMin) return 50;
-    return 100 - ((value - trendMin) / (trendMax - trendMin)) * 100;
-  }
-
-  function variationPct(value: number | null) {
-    if (value == null) return 50;
-    if (variationMax === variationMin) return 50;
-    return ((value - variationMin) / (variationMax - variationMin)) * 100;
-  }
-
-  const trendTicks = 5;
-  const trendAxisValues = Array.from({ length: trendTicks }, (_, i) => {
-    const ratio = i / (trendTicks - 1);
-    const value = trendMax - ratio * (trendMax - trendMin);
-    return value;
+  const benchmarkRows = data.performanceRows.length;
+  const cardRows = data.indikatorCards.slice(0, 9).map((card) => {
+    const row = data.performanceRows.find((r) => r.indikator_id === card.indikator_id);
+    const tone = getPerformanceTone(row?.rang ?? null, Math.max(benchmarkRows, 1));
+    return { card, row, tone };
   });
 
   return (
     <PageBackground>
-      
-<TopNav
-  databases={data.allDatabases}
-  hospitals={data.allHospitals}
-  active="hospital"
-/>
+      <div className="mx-auto max-w-[1440px] px-4 pb-16 md:px-6">
+        <TopNav
+          databases={data.allDatabases}
+          hospitals={data.allHospitals}
+          active="hospital"
+        />
 
-      <div className="mx-auto max-w-[1400px] px-6 pb-16 pt-10 md:px-8 lg:px-10">
-        <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
-          <section>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-              Hospitalprofilen
+        {/* Header */}
+        <div className="mt-8 rounded-[32px] border border-slate-200/80 bg-white/78 p-7 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+          <div className="flex flex-wrap items-start justify-between gap-6">
+            <div className="max-w-4xl">
+              <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Hospital
+              </div>
+
+              <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-950 md:text-5xl">
+                {data.hospital.hospital_navn}
+              </h1>
+
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">
+                Indblik i resultater på tværs af kliniske kvalitetsdatabaser for{" "}
+                {data.hospital.hospital_navn}. Siden viser benchmark, udvikling,
+                variation og overblik over, hvor hospitalet står stærkt – og hvor der
+                er mest at hente.
+              </p>
             </div>
 
-            <h1 className="mt-3 max-w-4xl text-5xl font-semibold tracking-tight text-slate-950 md:text-7xl">
-              {data.hospital.hospital_navn}
-            </h1>
-
-            <p className="mt-5 max-w-3xl text-xl leading-8 text-slate-600">
-              Kvalitetsprofil på tværs af kliniske databaser med fokus på niveau, udvikling og intern variation.
-            </p>
-
-            <div className="mt-6 flex flex-wrap gap-3">
-              <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 shadow-sm">
-                Region <span className="font-semibold text-slate-900">{data.hospital.region}</span>
+            <div className="rounded-[24px] border border-slate-200 bg-white/90 px-5 py-4 shadow-sm">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Periode
               </div>
-              <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 shadow-sm">
-                <span className="font-semibold text-slate-900">{data.databaseCount}</span> databaser
+              <div className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                {data.periodStart}–{data.periodEnd}
               </div>
-              <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 shadow-sm">
-                <span className="font-semibold text-slate-900">{data.indikatorCount}</span> indikatorer
-              </div>
-              <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 shadow-sm">
-                Periode <span className="font-semibold text-slate-900">{data.periodStart}–{data.periodEnd}</span>
-              </div>
+              <div className="mt-1 text-xs text-slate-500">Valgt år: {data.selectedYear}</div>
             </div>
-          </section>
-
-          <HospitalFilters
-            availableYears={data.availableYears}
-            selectedYear={data.selectedYear}
-            databases={data.databasesForFilter}
-            selectedDatabaseId={data.selectedDatabaseId}
-          />
+          </div>
         </div>
 
-        <section className="mt-10 grid gap-5 lg:grid-cols-3">
-          {[
-            {
-              tone: "amber",
-              title: "Benchmark",
-              value: data.benchmarkSummary.value,
-              description: data.benchmarkSummary.description,
-              rows: data.benchmarkSummary.subRows,
-            },
-            {
-              tone: "sky",
-              title: "Bevægelse",
-              value: data.movementSummary.value,
-              description: data.movementSummary.description,
-              rows: data.movementSummary.subRows,
-            },
-            {
-              tone: "rose",
-              title: "Variation",
-              value: data.variationSummary.value,
-              description: data.variationSummary.description,
-              rows: data.variationSummary.subRows,
-            },
-          ].map((card) => (
-            <div
-              key={card.title}
-              className={cn(
-                "rounded-[28px] border bg-white/70 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur",
-                card.tone === "amber" && "border-amber-200",
-                card.tone === "sky" && "border-sky-200",
-                card.tone === "rose" && "border-rose-200"
-              )}
-            >
-              <div className="flex items-start justify-between">
-                <span
-                  className={cn(
-                    "rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide",
-                    card.tone === "amber" && "bg-amber-50 text-amber-700",
-                    card.tone === "sky" && "bg-sky-50 text-sky-700",
-                    card.tone === "rose" && "bg-rose-50 text-rose-700"
-                  )}
-                >
-                  {card.title}
-                </span>
-              </div>
-
-              <div className="mt-6 text-5xl font-semibold tracking-tight text-slate-950">
-                {card.value}
-              </div>
-
-              <p className="mt-3 text-sm leading-6 text-slate-600">{card.description}</p>
-
-              <div className="mt-6 space-y-3 border-t border-slate-200/80 pt-4">
-                {card.rows.map((row) => (
-                  <div key={row.label} className="flex items-center justify-between gap-4 text-sm">
-                    <span className="text-slate-600">{row.label}</span>
-                    <span className="font-medium text-slate-900">{row.value}</span>
-                  </div>
-                ))}
-              </div>
+        {/* Scorecards flyttet op */}
+        <div className="mt-6 grid gap-5 lg:grid-cols-3">
+          <div className="rounded-[28px] border border-amber-100 bg-amber-50/80 p-5">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">
+              Benchmark
             </div>
-          ))}
-        </section>
+            <div className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+              {data.benchmarkSummary.value}
+            </div>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              {data.benchmarkSummary.description}
+            </p>
+            <div className="mt-4 space-y-2">
+              {data.benchmarkSummary.subRows.map((row) => (
+                <div
+                  key={row.label}
+                  className="flex items-center justify-between text-sm text-slate-700"
+                >
+                  <span>{row.label}</span>
+                  <span className="font-medium text-slate-950">{row.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
 
-        <section className="mt-10 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-[32px] border border-sky-100 bg-white/70 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur">
+          <div className="rounded-[28px] border border-sky-100 bg-sky-50/80 p-5">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700">
+              Bevægelse
+            </div>
+            <div className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+              {data.movementSummary.value}
+            </div>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              {data.movementSummary.description}
+            </p>
+            <div className="mt-4 space-y-2">
+              {data.movementSummary.subRows.map((row) => (
+                <div
+                  key={row.label}
+                  className="flex items-center justify-between text-sm text-slate-700"
+                >
+                  <span>{row.label}</span>
+                  <span className="font-medium text-slate-950">{row.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[28px] border border-rose-100 bg-rose-50/80 p-5">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-rose-700">
+              Variation
+            </div>
+            <div className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+              {data.variationSummary.value}
+            </div>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              {data.variationSummary.description}
+            </p>
+            <div className="mt-4 space-y-2">
+              {data.variationSummary.subRows.map((row) => (
+                <div
+                  key={row.label}
+                  className="flex items-center justify-between text-sm text-slate-700"
+                >
+                  <span>{row.label}</span>
+                  <span className="font-medium text-slate-950">{row.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Hovedindhold */}
+        <div className="mt-8 grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+          {/* Landskab */}
+          <div className="rounded-[32px] border border-slate-200/80 bg-white/76 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-4xl font-semibold tracking-tight text-slate-950">
-                  Hospitalets kvalitetslandskab
+                <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  På tværs af databaser
+                </div>
+                <h2 className="mt-4 text-4xl font-semibold tracking-tight text-slate-950">
+                  Hvor står hospitalet stærkest?
                 </h2>
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-                  Databaser placeret efter gennemsnitlig udvikling og gennemsnitlig rangscore i det valgte år.
+                <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
+                  Hver prik viser en database. Placeringen kombinerer gennemsnitlig
+                  forbedring siden baseline og gennemsnitlig rangscore på tværs af
+                  indikatorer.
                 </p>
               </div>
-              <span className="rounded-full bg-sky-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-sky-700">
-                Performancekort
-              </span>
             </div>
 
-            <div className="mt-8 rounded-[28px] border border-slate-200 bg-white/60 p-4">
-              <div className="relative h-[420px] overflow-hidden rounded-[24px] bg-[linear-gradient(to_right,rgba(148,163,184,0.12)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.12)_1px,transparent_1px)] bg-[size:48px_48px]">
-                <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-slate-300" />
-                <div className="absolute inset-y-0 left-1/2 border-l border-dashed border-slate-300" />
+            <div className="mt-6 rounded-[24px] border border-slate-200 bg-white/60 p-4">
+              <div className="relative h-[420px] overflow-hidden rounded-[20px] bg-[linear-gradient(to_right,rgba(148,163,184,0.10)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.10)_1px,transparent_1px)] bg-[size:48px_48px]">
+                <div className="absolute inset-x-4 top-1/2 border-t border-dashed border-slate-300" />
+                <div className="absolute inset-y-4 left-1/2 border-l border-dashed border-slate-300" />
 
-                <div className="absolute left-4 top-4 rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-700">
-                  Stærke databaser
+                <div className="absolute left-6 top-6 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[12px] font-medium text-emerald-700">
+                  Stærke frontløbere
                 </div>
-                <div className="absolute bottom-4 left-4 rounded-full bg-amber-50 px-3 py-1 text-xs text-amber-700">
+                <div className="absolute right-6 top-6 rounded-full border border-sky-100 bg-sky-50 px-3 py-1.5 text-[12px] font-medium text-sky-700">
+                  Forbedrer sig
+                </div>
+                <div className="absolute bottom-6 left-6 rounded-full border border-amber-100 bg-amber-50 px-3 py-1.5 text-[12px] font-medium text-amber-700">
                   Under udvikling
                 </div>
-                <div className="absolute bottom-4 right-4 rounded-full bg-rose-50 px-3 py-1 text-xs text-rose-700">
+                <div className="absolute bottom-6 right-6 rounded-full border border-rose-100 bg-rose-50 px-3 py-1.5 text-[12px] font-medium text-rose-700">
                   Kræver opmærksomhed
                 </div>
 
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-xs text-slate-500">
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-slate-500">
                   Gennemsnitlig forbedring siden baseline
                 </div>
                 <div className="absolute left-2 top-1/2 -translate-y-1/2 -rotate-90 text-xs text-slate-500">
                   Gennemsnitlig rangscore
                 </div>
 
-                {data.landscapeRows.map((point) => (
-                  <div
-                    key={point.id}
-                    className="group absolute"
-                    style={{
-                      left: `calc(${xPct(point.xForbedring)}% - 8px)`,
-                      top: `calc(${yPct(point.yScore)}% - 8px)`,
-                    }}
-                  >
-                    <div className="h-4 w-4 rounded-full border border-sky-500 bg-sky-400 shadow-sm" />
-                    <div className="pointer-events-none absolute left-5 top-0 z-10 hidden w-64 rounded-2xl border border-slate-200 bg-white p-3 text-sm shadow-xl group-hover:block">
-                      <div className="font-semibold text-slate-900">{point.navn}</div>
-                      <div className="mt-1 text-slate-600">Speciale: {point.speciale}</div>
-                      <div className="text-slate-600">
-                        Gns. rang: {point.avgRank == null ? "–" : point.avgRank.toFixed(1)}
+                {data.landscapeRows.map((point) => {
+                  const x = safePct(point.xForbedring, minX, maxX, false, 50);
+                  const y = safePct(point.yScore, minY, maxY, true, 50);
+
+                  return (
+                    <div
+                      key={point.id}
+                      className="group absolute"
+                      style={{
+                        left: `calc(${x}% - 8px)`,
+                        top: `calc(${y}% - 8px)`,
+                      }}
+                    >
+                      <div className="h-4 w-4 rounded-full border border-sky-500 bg-sky-400 shadow-sm" />
+
+                      <div
+                        className={cn(
+                          "pointer-events-none absolute z-20 hidden w-64 rounded-2xl border border-slate-200 bg-white p-3 text-sm shadow-xl group-hover:block",
+                          getTooltipPlacement(x, y)
+                        )}
+                      >
+                        <div className="font-semibold text-slate-900">{point.navn}</div>
+                        <div className="mt-1 text-slate-600">Speciale: {point.speciale}</div>
+                        <div className="text-slate-600">
+                          Gns. rang: {point.avgRank == null ? "–" : point.avgRank.toFixed(1)}
+                        </div>
+                        <div className="text-slate-600">
+                          Rangscore: {point.yScore == null ? "–" : point.yScore.toFixed(2)}
+                        </div>
+                        <div className="text-slate-600">
+                          Forbedring:{" "}
+                          {point.xForbedring == null ? "–" : point.xForbedring.toFixed(2)}
+                        </div>
+                        <div className="text-slate-600">Indikatorer: {point.indikatorCount}</div>
                       </div>
-                      <div className="text-slate-600">
-                        Rangscore: {point.yScore == null ? "–" : point.yScore.toFixed(2)}
-                      </div>
-                      <div className="text-slate-600">
-                        Forbedring: {point.xForbedring == null ? "–" : point.xForbedring.toFixed(2)}
-                      </div>
-                      <div className="text-slate-600">Indikatorer: {point.indikatorCount}</div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
 
-          <div className="space-y-5">
-            <div className="rounded-[32px] border border-sky-100 bg-white/70 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-4xl font-semibold tracking-tight text-slate-950">
-                    Udvikling over tid
-                  </h2>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    {data.trendMeta.enabled
-                      ? `Hospitalet sammenholdt med nationalt niveau og bedste hospital for ${data.trendMeta.indicatorName} i ${data.trendMeta.databaseName}.`
-                      : "Vælg én database for at se en meningsfuld trend over tid."}
-                  </p>
-                </div>
-                <span className="rounded-full bg-sky-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-sky-700">
-                  Trend
-                </span>
+          {/* Trend + filtre samlet */}
+          <div className="rounded-[32px] border border-sky-100 bg-white/70 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-4xl font-semibold tracking-tight text-slate-950">
+                  Udvikling over tid
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-slate-600">
+                  Vælg år, database og indikator for at se udviklingen for hospitalet
+                  sammenholdt med nationalt niveau og bedste hospital.
+                </p>
               </div>
-
-              <div className="mt-6 rounded-[24px] border border-slate-200 bg-white/60 p-4">
-                {!data.trendMeta.enabled ? (
-                  <div className="flex h-[280px] items-center justify-center rounded-[20px] border border-dashed border-slate-300 bg-slate-50/60 px-6 text-center text-sm leading-6 text-slate-500">
-                    Vælg en database i filteret for at vise trend for en konkret indikator over tid.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-[44px_1fr] gap-3">
-                    <div className="relative h-[280px]">
-                      {trendAxisValues.map((tick, idx) => {
-                        const top = `${(idx / (trendTicks - 1)) * 100}%`;
-                        return (
-                          <div
-                            key={idx}
-                            className="absolute right-0 -translate-y-1/2 text-[11px] text-slate-500"
-                            style={{ top }}
-                          >
-                            {formatSimpleValue(tick, data.trendMeta.enhed)}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="relative h-[280px]">
-                      <div className="absolute inset-0 rounded-[20px] bg-[linear-gradient(to_right,rgba(148,163,184,0.10)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.10)_1px,transparent_1px)] bg-[size:48px_48px]" />
-
-<svg viewBox="0 0 100 100" className="relative z-10 h-full w-full overflow-visible">
-  {(() => {
-    const hospitalPoints = data.trendSeries.map((d, i) => {
-      const x =
-        data.trendSeries.length <= 1
-          ? 50
-          : (i / (data.trendSeries.length - 1)) * 100;
-      const y = trendYPct(d.hospitalValue);
-      return `${x},${y}`;
-    });
-
-    const nationalPoints = data.trendSeries.map((d, i) => {
-      const x =
-        data.trendSeries.length <= 1
-          ? 50
-          : (i / (data.trendSeries.length - 1)) * 100;
-      const y = trendYPct(d.nationalValue);
-      return `${x},${y}`;
-    });
-
-    const bestHospitalPoints = data.trendSeries.map((d, i) => {
-      const x =
-        data.trendSeries.length <= 1
-          ? 50
-          : (i / (data.trendSeries.length - 1)) * 100;
-      const y = trendYPct(d.bestHospitalValue);
-      return `${x},${y}`;
-    });
-
-    return (
-      <>
-        <polyline
-          fill="none"
-          stroke="rgb(148 163 184)"
-          strokeWidth="1.2"
-          points={nationalPoints.join(" ")}
-        />
-        <polyline
-          fill="none"
-          stroke="rgb(16 185 129)"
-          strokeWidth="1.4"
-          points={bestHospitalPoints.join(" ")}
-        />
-        <polyline
-          fill="none"
-          stroke="rgb(14 165 233)"
-          strokeWidth="1.8"
-          points={hospitalPoints.join(" ")}
-        />
-
-        {data.trendSeries.map((d, i) => {
-          const x =
-            data.trendSeries.length <= 1
-              ? 50
-              : (i / (data.trendSeries.length - 1)) * 100;
-          const y = trendYPct(d.hospitalValue);
-
-          return (
-            <g key={`hospital-${d.aar}`} className="group">
-              <circle cx={x} cy={y} r="1.8" fill="rgb(14 165 233)" />
-              <circle cx={x} cy={y} r="5" fill="transparent" />
-              <foreignObject
-                x={x < 72 ? x + 2 : x - 34}
-                y={y < 24 ? y + 2 : y - 20}
-                width="32"
-                height="20"
-                className="pointer-events-none opacity-0 transition-opacity group-hover:opacity-100"
-              >
-                <div className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-[10px] leading-4 text-slate-700 shadow-lg">
-                  <div className="font-medium">{d.aar}</div>
-                  <div>Hosp.: {formatSimpleValue(d.hospitalValue, data.trendMeta.enhed)}</div>
-                  <div className="text-slate-500">
-                    Nat.: {formatSimpleValue(d.nationalValue, data.trendMeta.enhed)}
-                  </div>
-                  <div className="text-emerald-700">
-                    Bedst: {formatSimpleValue(d.bestHospitalValue, data.trendMeta.enhed)}
-                  </div>
-                </div>
-              </foreignObject>
-            </g>
-          );
-        })}
-      </>
-    );
-  })()}
-</svg>
-
-                      <div className="pointer-events-none absolute inset-x-4 bottom-0 flex justify-between text-[11px] text-slate-500">
-                        {data.trendSeries.map((point) => (
-                          <span key={point.aar}>{point.aar}</span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {data.trendMeta.enabled && (
-<div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-600">
-  <div className="flex items-center gap-2">
-    <span className="h-2.5 w-2.5 rounded-full bg-sky-500" />
-    Hospital
-  </div>
-  <div className="flex items-center gap-2">
-    <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
-    Nationalt gennemsnit
-  </div>
-  <div className="flex items-center gap-2">
-    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-    Bedste hospital
-    {data.trendMeta.bestHospitalName ? ` (${data.trendMeta.bestHospitalName})` : ""}
-  </div>
-  <div className="flex items-center gap-2 text-slate-500">
-    Enhed: {data.trendMeta.enhed}
-  </div>
-</div>
-                )}
-              </div>
+              <span className="rounded-full bg-sky-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-sky-700">
+                Trend
+              </span>
             </div>
 
-            <div className="rounded-[32px] border border-rose-100 bg-white/70 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-3xl font-semibold tracking-tight text-slate-950">
-                    Variation på tværs af afdelinger
-                  </h2>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    Konfidensintervaller og observeret værdi for udvalgte afdelinger.
-                  </p>
+            <div className="mt-5">
+              <HospitalTrendControls
+                selectedYear={data.selectedYear}
+                availableYears={data.availableYears}
+                selectedDatabaseId={data.selectedDatabaseId}
+                databases={data.databasesForFilter}
+                selectedIndicatorId={data.selectedIndicatorId}
+                indicators={indicatorOptions}
+              />
+            </div>
+
+            <div className="mt-6 rounded-[24px] border border-slate-200 bg-white/60 p-4">
+              {!data.trendMeta.enabled ? (
+                <div className="flex h-[320px] items-center justify-center rounded-[20px] border border-dashed border-slate-300 bg-slate-50/60 px-6 text-center text-sm leading-7 text-slate-500">
+                  Vælg først en database i filteret. Derefter kan du også vælge indikator
+                  og se udviklingen over tid.
                 </div>
-                <span className="rounded-full bg-rose-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-rose-700">
-                  Variation
+              ) : (
+                <div className="grid grid-cols-[44px_1fr] gap-3">
+                  <div className="relative h-[320px]">
+                    {trendAxisValues.map((tick, idx) => {
+                      const top = `${(idx / (trendTicks - 1)) * 100}%`;
+                      return (
+                        <div
+                          key={idx}
+                          className="absolute right-0 -translate-y-1/2 text-[11px] text-slate-500"
+                          style={{ top }}
+                        >
+                          {formatSimpleValue(tick, data.trendMeta.enhed)}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="relative h-[320px]">
+                    <div className="absolute inset-0 rounded-[20px] bg-[linear-gradient(to_right,rgba(148,163,184,0.10)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.10)_1px,transparent_1px)] bg-[size:48px_48px]" />
+
+                    <svg
+                      className="absolute inset-0 h-full w-full"
+                      viewBox="0 0 100 100"
+                      preserveAspectRatio="none"
+                    >
+                      <polyline
+                        fill="none"
+                        stroke="rgb(14 165 233)"
+                        strokeWidth="0.8"
+                        points={trendHospitalPoints
+                          .filter((p) => p.value != null)
+                          .map((p) => `${parseFloat(p.x)},${parseFloat(p.y)}`)
+                          .join(" ")}
+                      />
+                      <polyline
+                        fill="none"
+                        stroke="rgb(100 116 139)"
+                        strokeWidth="0.8"
+                        strokeDasharray="2 2"
+                        points={trendNationalPoints
+                          .filter((p) => p.value != null)
+                          .map((p) => `${parseFloat(p.x)},${parseFloat(p.y)}`)
+                          .join(" ")}
+                      />
+                      <polyline
+                        fill="none"
+                        stroke="rgb(16 185 129)"
+                        strokeWidth="0.8"
+                        points={trendBestPoints
+                          .filter((p) => p.value != null)
+                          .map((p) => `${parseFloat(p.x)},${parseFloat(p.y)}`)
+                          .join(" ")}
+                      />
+                    </svg>
+
+                    {trendHospitalPoints.map((point) =>
+                      point.value == null ? null : (
+                        <div
+                          key={`hospital-${point.aar}`}
+                          className="group absolute"
+                          style={{
+                            left: `calc(${point.x} - 5px)`,
+                            top: `calc(${point.y} - 5px)`,
+                          }}
+                        >
+                          <div className="h-2.5 w-2.5 rounded-full bg-sky-500 shadow-sm" />
+                          <div className="pointer-events-none absolute left-4 top-0 z-10 hidden w-40 rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-xl group-hover:block">
+                            <div className="font-semibold text-slate-900">
+                              {data.hospital.hospital_navn}
+                            </div>
+                            <div className="text-slate-600">{point.aar}</div>
+                            <div className="mt-1 text-slate-700">
+                              {formatSimpleValue(point.value, data.trendMeta.enhed)}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    )}
+
+                    {trendNationalPoints.map((point) =>
+                      point.value == null ? null : (
+                        <div
+                          key={`national-${point.aar}`}
+                          className="group absolute"
+                          style={{
+                            left: `calc(${point.x} - 4px)`,
+                            top: `calc(${point.y} - 4px)`,
+                          }}
+                        >
+                          <div className="h-2 w-2 rounded-full bg-slate-500 shadow-sm" />
+                          <div className="pointer-events-none absolute left-4 top-0 z-10 hidden w-32 rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-xl group-hover:block">
+                            <div className="font-semibold text-slate-900">Nationalt</div>
+                            <div className="text-slate-600">{point.aar}</div>
+                            <div className="mt-1 text-slate-700">
+                              {formatSimpleValue(point.value, data.trendMeta.enhed)}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    )}
+
+                    {trendBestPoints.map((point) =>
+                      point.value == null ? null : (
+                        <div
+                          key={`best-${point.aar}`}
+                          className="group absolute"
+                          style={{
+                            left: `calc(${point.x} - 4px)`,
+                            top: `calc(${point.y} - 4px)`,
+                          }}
+                        >
+                          <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-sm" />
+                          <div className="pointer-events-none absolute left-4 top-0 z-10 hidden w-48 rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-xl group-hover:block">
+                            <div className="font-semibold text-slate-900">
+                              {data.trendMeta.bestHospitalName ?? "Bedste hospital"}
+                            </div>
+                            <div className="text-slate-600">{point.aar}</div>
+                            <div className="mt-1 text-slate-700">
+                              {formatSimpleValue(point.value, data.trendMeta.enhed)}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    )}
+
+                    <div className="absolute bottom-0 left-0 right-0 flex justify-between px-1 text-[11px] text-slate-500">
+                      {data.trendSeries.map((point) => (
+                        <div key={point.aar}>{point.aar}</div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {data.trendMeta.enabled ? (
+              <>
+                <div className="mt-4 text-sm text-slate-600">
+                  Valgt indikator:{" "}
+                  <span className="font-medium text-slate-950">
+                    {data.trendMeta.indicatorName}
+                  </span>
+                  {data.trendMeta.databaseName ? (
+                    <>
+                      {" "}
+                      · Database:{" "}
+                      <span className="font-medium text-slate-950">
+                        {data.trendMeta.databaseName}
+                      </span>
+                    </>
+                  ) : null}
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-600">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5">
+                    <span className="h-2 w-2 rounded-full bg-sky-500" />
+                    {data.hospital.hospital_navn}
+                  </div>
+                  <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5">
+                    <span className="h-2 w-2 rounded-full bg-slate-500" />
+                    Nationalt niveau
+                  </div>
+                  <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    {data.trendMeta.bestHospitalName ?? "Bedste hospital i aktuelt år"}
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Intern variation - model A */}
+        <div className="mt-8 rounded-[32px] border border-slate-200/80 bg-white/76 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Afdelingsvariation
+              </div>
+              <h2 className="mt-4 text-4xl font-semibold tracking-tight text-slate-950">
+                Intern variation
+              </h2>
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
+                Hver række viser én afdeling for den valgte indikator i den valgte
+                database. Prikken er afdelingens værdi, og den vandrette linje viser
+                intervallet omkring målingen.
+              </p>
+            </div>
+          </div>
+
+          {data.selectedDatabaseId && data.selectedIndicatorId && selectedIndicatorMeta ? (
+            <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-600">
+              <div className="rounded-full bg-slate-100 px-3 py-1.5">
+                Database:{" "}
+                <span className="font-medium text-slate-900">
+                  {data.trendMeta.databaseName ?? "Valgt database"}
                 </span>
               </div>
+              <div className="rounded-full bg-slate-100 px-3 py-1.5">
+                Indikator:{" "}
+                <span className="font-medium text-slate-900">
+                  {selectedIndicatorMeta.indikator_navn}
+                </span>
+              </div>
+              <div className="rounded-full bg-slate-100 px-3 py-1.5">
+                Retning:{" "}
+                <span className="font-medium text-slate-900">
+                  {selectedIndicatorMeta.retning === "lavere_bedre"
+                    ? "Lavere er bedre"
+                    : "Højere er bedre"}
+                </span>
+              </div>
+            </div>
+          ) : null}
 
-              <div className="mt-6 space-y-4">
-                {data.departmentVariationRows.length === 0 ? (
-                  <div className="rounded-[22px] border border-dashed border-slate-300 bg-slate-50/60 p-6 text-sm text-slate-500">
-                    Intet variationsgrundlag for det valgte udsnit.
-                  </div>
-                ) : (
-                  data.departmentVariationRows.map((row) => {
-                    const left = variationPct(row.ci_nedre);
-                    const center = variationPct(row.vaerdi);
-                    const right = variationPct(row.ci_oevre);
-                    const barLeft = Math.min(left, right);
-                    const barWidth = Math.max(Math.abs(right - left), 2);
+          <div className="mt-6 rounded-[24px] border border-slate-200 bg-white/60 p-4">
+            {!data.selectedDatabaseId || !data.selectedIndicatorId ? (
+              <div className="flex h-[260px] items-center justify-center rounded-[20px] border border-dashed border-slate-300 bg-slate-50/60 px-6 text-center text-sm leading-6 text-slate-500">
+                Vælg først database og indikator i trendkortet for at se intern variation
+                mellem afdelinger.
+              </div>
+            ) : !focusedVariationRows.length ? (
+              <div className="flex h-[260px] items-center justify-center rounded-[20px] border border-dashed border-slate-300 bg-slate-50/60 px-6 text-center text-sm leading-6 text-slate-500">
+                Ingen afdelingsdata fundet for det valgte udsnit.
+              </div>
+            ) : (
+              <div className="space-y-5">
+                <div className="relative h-[260px]">
+                  <div className="absolute inset-x-[160px] top-1/2 border-t border-dashed border-slate-300" />
+
+                  {focusedVariationRows.map((row, idx) => {
+                    const top = 22 + idx * 28;
 
                     return (
                       <div
                         key={`${row.afdeling_id}-${row.indikator_id}`}
-                        className="rounded-[22px] border border-slate-200 bg-white/60 p-4"
+                        className="absolute inset-x-0 group"
+                        style={{ top }}
                       >
-                        <div className="text-sm font-medium text-slate-900">{row.afdeling_navn}</div>
-                        <div className="mt-1 text-xs text-slate-500">
-                          {row.database_navn} · {row.indikator_navn}
+                        <div className="absolute left-0 w-36 truncate text-xs text-slate-600">
+                          {row.afdeling_navn}
                         </div>
 
-                        <div className="mt-4 grid grid-cols-[64px_1fr_64px] items-center gap-3">
-                          <div className="text-xs text-slate-500">
-                            {formatSimpleValue(row.ci_nedre, row.enhed)}
-                          </div>
+                        {row.ci_nedre != null && row.ci_oevre != null ? (
+                          <div
+                            className="absolute h-[2px] rounded-full bg-slate-300"
+                            style={{
+                              left: `calc(160px + ${variationXPct(row.ci_nedre) * 0.72}%)`,
+                              width: `${Math.max(
+                                8,
+                                (variationXPct(row.ci_oevre) - variationXPct(row.ci_nedre)) * 0.72
+                              )}%`,
+                              top: 9,
+                            }}
+                          />
+                        ) : null}
 
-                          <div className="relative h-8">
-                            <div className="absolute left-0 right-0 top-1/2 border-t border-dashed border-slate-300" />
-                            <div
-                              className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded bg-slate-400"
-                              style={{
-                                left: `${clamp01(barLeft / 100) * 100}%`,
-                                width: `${clamp01(barWidth / 100) * 100}%`,
-                              }}
-                            />
-                            <div
-                              className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-rose-500 bg-rose-400"
-                              style={{ left: `${center}%` }}
-                            />
-                          </div>
+                        {row.vaerdi != null ? (
+                          <div
+                            className="absolute h-3 w-3 -translate-x-1/2 rounded-full border border-rose-500 bg-rose-400 shadow-sm"
+                            style={{
+                              left: `calc(160px + ${variationXPct(row.vaerdi) * 0.72}%)`,
+                              top: 4,
+                            }}
+                          />
+                        ) : null}
 
-                          <div className="text-right text-xs text-slate-500">
+                        <div className="pointer-events-none absolute left-[380px] top-0 z-20 hidden w-56 rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-xl group-hover:block">
+                          <div className="font-semibold text-slate-900">{row.afdeling_navn}</div>
+                          <div className="mt-1 text-slate-600">
+                            {selectedIndicatorMeta?.indikator_navn}
+                          </div>
+                          <div className="text-slate-600">{row.database_navn}</div>
+                          <div className="mt-1 text-slate-700">
+                            Værdi: {formatSimpleValue(row.vaerdi, row.enhed)}
+                          </div>
+                          <div className="text-slate-700">
+                            Interval: {formatSimpleValue(row.ci_nedre, row.enhed)} –{" "}
                             {formatSimpleValue(row.ci_oevre, row.enhed)}
                           </div>
                         </div>
-
-                        <div className="mt-2 text-center text-xs font-medium text-slate-700">
-                          {formatSimpleValue(row.vaerdi, row.enhed)}
-                        </div>
                       </div>
                     );
-                  })
-                )}
+                  })}
+                </div>
+
+                <div className="flex justify-between pl-[160px] text-[11px] text-slate-500">
+                  <div>{formatSimpleValue(variationMin, focusedVariationRows[0]?.enhed)}</div>
+                  <div>
+                    {formatSimpleValue(
+                      (variationMin + variationMax) / 2,
+                      focusedVariationRows[0]?.enhed
+                    )}
+                  </div>
+                  <div>{formatSimpleValue(variationMax, focusedVariationRows[0]?.enhed)}</div>
+                </div>
               </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-10 rounded-[32px] border border-slate-200 bg-white/70 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-4xl font-semibold tracking-tight text-slate-950">
-                Indikatorperformance i hospitalets databaser
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-slate-600">
-                Ét overblik pr. indikator med niveau, udvikling, aktivitet og placering.
-              </p>
-            </div>
-            <span className="rounded-full bg-sky-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-sky-700">
-              Oversigt
-            </span>
+            )}
           </div>
 
-          <div className="mt-6 overflow-hidden rounded-[24px] border border-slate-200">
-            <div className="grid grid-cols-[1.7fr_1fr_1fr_110px_100px] bg-slate-50 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-              <div>Database / indikator</div>
-              <div>Niveau</div>
-              <div>Udvikling</div>
-              <div>Forløb</div>
-              <div>Rang</div>
-            </div>
-
-            <div className="divide-y divide-slate-200/80 bg-white/60">
-              {data.performanceRows.map((row) => (
-                <Link
-                  key={`${row.database_id}-${row.indikator_id}`}
-                  href={`/database/${row.database_id}?indikator=${row.indikator_id}&aar=${data.selectedYear}`}
-                  className="grid grid-cols-[1.7fr_1fr_1fr_110px_100px] items-center px-5 py-4 text-sm transition hover:bg-white"
+          {focusedVariationRows.length ? (
+            <div className="mt-4 space-y-2">
+              {focusedVariationRows.slice(0, 8).map((row) => (
+                <div
+                  key={`meta-${row.afdeling_id}-${row.indikator_id}`}
+                  className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3 text-sm"
                 >
                   <div>
-                    <div className="font-medium text-slate-900">{row.database_navn}</div>
-                    <div className="mt-1 text-xs text-slate-500">{row.indikator_navn}</div>
+                    <div className="font-medium text-slate-950">{row.afdeling_navn}</div>
+                    <div className="text-xs text-slate-500">
+                      {selectedIndicatorMeta?.indikator_navn} · {row.database_navn}
+                    </div>
                   </div>
                   <div className="font-medium text-slate-900">
                     {formatSimpleValue(row.vaerdi, row.enhed)}
                   </div>
-                  <div className="font-medium text-slate-900">
-                    {formatSimpleValue(row.forbedring, row.enhed)}
-                  </div>
-                  <div className="font-medium text-slate-900">
-                    {row.antal_forloeb == null ? "–" : Math.round(row.antal_forloeb)}
-                  </div>
-                  <div className="font-medium text-slate-900">
-                    {row.rang == null ? "–" : Math.round(row.rang)}
-                  </div>
-                </Link>
+                </div>
               ))}
             </div>
+          ) : null}
+        </div>
+
+        {/* Indikatorkort - farver viser performance */}
+        <div className="mt-8 rounded-[32px] border border-slate-200/80 bg-white/76 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Hurtigt overblik
+              </div>
+              <h2 className="mt-4 text-4xl font-semibold tracking-tight text-slate-950">
+                Indikatorer værd at dykke videre ned i
+              </h2>
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
+                Farven på kortene viser det aktuelle performancebillede i det valgte
+                udsnit. Grøn betyder, at indikatoren står stærkt relativt til de øvrige,
+                amber er mere blandet, og rose peger på noget, der fortjener ekstra
+                opmærksomhed.
+              </p>
+            </div>
+
+            {data.selectedDatabaseId ? (
+              <Link
+                href={`/database/${data.selectedDatabaseId}`}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+              >
+                Gå til databasesiden
+              </Link>
+            ) : null}
           </div>
-        </section>
 
-        <section className="mt-10 rounded-[32px] border border-slate-200 bg-white/70 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur">
-          <h2 className="text-4xl font-semibold tracking-tight text-slate-950">
-            Indikatorer i hospitalet
-          </h2>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {data.indikatorCards.map((card) => (
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {cardRows.map(({ card, row, tone }) => (
               <div
                 key={card.indikator_id}
-                className="rounded-[24px] border border-slate-200 bg-white/70 p-5 transition hover:-translate-y-0.5 hover:shadow-md"
+                className={cn("rounded-[24px] border p-5", tone.card)}
               >
-                <div className="text-sm text-slate-500">{card.indikator_type}</div>
-                <div className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    {card.indikator_type || "Indikator"}
+                  </div>
+                  <div className={cn("text-xs font-medium", tone.badge)}>{tone.label}</div>
+                </div>
+
+                <div className="mt-3 text-lg font-semibold leading-7 text-slate-950">
                   {card.indikator_navn}
                 </div>
-                <div className="mt-3 text-sm text-slate-600">
-                  {card.retning === "lavere_bedre" ? "Lavere er bedre" : "Højere er bedre"}
+
+                <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-2xl bg-white/70 p-3">
+                    <div className="text-xs text-slate-500">Niveau</div>
+                    <div className="mt-1 font-medium text-slate-950">
+                      {formatSimpleValue(row?.vaerdi ?? null, card.enhed)}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl bg-white/70 p-3">
+                    <div className="text-xs text-slate-500">Udvikling</div>
+                    <div className="mt-1 font-medium text-slate-950">
+                      {formatSimpleValue(row?.forbedring ?? null, card.enhed)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
+                  <span>
+                    {card.retning === "lavere_bedre" ? "Lavere er bedre" : "Højere er bedre"}
+                  </span>
+                  <span>{row?.rang == null ? "Rang –" : `Rang #${Math.round(row.rang)}`}</span>
                 </div>
               </div>
             ))}
           </div>
-        </section>
+        </div>
       </div>
     </PageBackground>
   );

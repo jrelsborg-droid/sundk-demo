@@ -4,6 +4,7 @@ import path from "node:path";
 type Query = {
   aar?: string;
   database?: string;
+  indikator?: string;
 };
 
 type HospitalDimRow = {
@@ -74,6 +75,7 @@ export type HospitalPageData = {
   selectedYear: number;
   availableYears: number[];
   selectedDatabaseId: string | null;
+  selectedIndicatorId: string | null;
   periodStart: number;
   periodEnd: number;
 
@@ -431,6 +433,17 @@ export async function loadHospitalData(
       return a.rang - b.rang;
     });
 
+  const indikatorCards = uniqueBy(
+    performanceRows.map((row) => ({
+      indikator_id: row.indikator_id,
+      indikator_navn: row.indikator_navn,
+      indikator_type: row.indikator_type,
+      enhed: row.enhed,
+      retning: row.retning,
+    })),
+    (x) => x.indikator_id
+  ).sort((a, b) => a.indikator_navn.localeCompare(b.indikator_navn, "da"));
+
   const hospitalPopulationSize =
     new Set(hospitalFacts.filter((r) => r.aar === selectedYear).map((r) => r.hospital_id)).size || 18;
 
@@ -549,10 +562,17 @@ export async function loadHospitalData(
     bestHospitalId: null,
   };
 
+  let selectedIndicatorId: string | null = null;
+
   if (selectedDatabaseId) {
     const dbRowsCurrentYear = performanceRows.filter((r) => r.database_id === selectedDatabaseId);
 
-    const anchorRow =
+    const requestedIndicatorRow =
+      query?.indikator != null
+        ? dbRowsCurrentYear.find((r) => r.indikator_id === query.indikator) ?? null
+        : null;
+
+    const fallbackAnchorRow =
       [...dbRowsCurrentYear].sort((a, b) => {
         if (a.rang == null && b.rang == null) return 0;
         if (a.rang == null) return 1;
@@ -560,7 +580,11 @@ export async function loadHospitalData(
         return a.rang - b.rang;
       })[0] ?? null;
 
+    const anchorRow = requestedIndicatorRow ?? fallbackAnchorRow;
+
     if (anchorRow) {
+      selectedIndicatorId = anchorRow.indikator_id;
+
       const bestHospitalCurrentYearRow = hospitalFacts
         .filter(
           (r) =>
@@ -625,17 +649,6 @@ export async function loadHospitalData(
       });
     }
   }
-
-  const indikatorCards = uniqueBy(
-    performanceRows.map((row) => ({
-      indikator_id: row.indikator_id,
-      indikator_navn: row.indikator_navn,
-      indikator_type: row.indikator_type,
-      enhed: row.enhed,
-      retning: row.retning,
-    })),
-    (x) => x.indikator_id
-  ).sort((a, b) => a.indikator_navn.localeCompare(b.indikator_navn, "da"));
 
   const allDatabasesMode = selectedDatabaseId == null;
 
@@ -751,6 +764,7 @@ export async function loadHospitalData(
     selectedYear,
     availableYears,
     selectedDatabaseId,
+    selectedIndicatorId,
     periodStart,
     periodEnd,
     databaseCount,
