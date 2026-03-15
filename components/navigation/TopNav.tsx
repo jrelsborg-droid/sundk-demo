@@ -299,7 +299,7 @@ const filteredResults = useMemo(() => {
                 </span>
               </div>
               <div className="text-xs text-slate-500">
-                Offentlig kvalitetsindsigt · demo
+                Offentlig kvalitetsindsigt · DEMO-SITE - alle data er kunstige
               </div>
             </div>
           </Link>
