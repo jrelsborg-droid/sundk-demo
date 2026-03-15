@@ -519,6 +519,8 @@ export default function HomepageClient({
       : (indikatorerForDatabase[0]?.indikator_id ?? "")
   );
 
+  const overviewHref = `/database/${selectedDatabaseId}?indikator=${selectedIndikatorId}`;
+
   const [kvadrantVisning, setKvadrantVisning] = useState<"hospital" | "afdeling">("hospital");
 
   const selectedDatabase =
@@ -693,13 +695,14 @@ const kvadrantRows: LevelRow[] =
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <GlassCard hover accent="amber" className="p-6">
-              <div className="flex items-start justify-between gap-4">
-                <CardEyebrow tone="amber">Benchmark</CardEyebrow>
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
-                  <IconTrophy />
+            <Link href={overviewHref} className="block cursor-pointer">
+              <GlassCard hover accent="amber" className="p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <CardEyebrow tone="amber">Benchmark</CardEyebrow>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
+                    <IconTrophy />
+                  </div>
                 </div>
-              </div>
 
               <div className="mt-5">
                 <div className="text-sm font-medium text-slate-600">
@@ -725,7 +728,9 @@ const kvadrantRows: LevelRow[] =
                 ))}
               </div>
             </GlassCard>
+          </Link>
 
+          <Link href={overviewHref} className="block cursor-pointer">
             <GlassCard hover accent="sky" className="p-6">
               <div className="flex items-start justify-between gap-4">
                 <CardEyebrow tone="sky">Bevægelse</CardEyebrow>
@@ -760,7 +765,9 @@ const kvadrantRows: LevelRow[] =
                 ))}
               </div>
             </GlassCard>
+          </Link>
 
+          <Link href={overviewHref} className="block cursor-pointer">
             <GlassCard hover accent="rose" className="p-6">
               <div className="flex items-start justify-between gap-4">
                 <CardEyebrow tone="rose">Variation</CardEyebrow>
@@ -791,8 +798,9 @@ const kvadrantRows: LevelRow[] =
                 </div>
               </div>
             </GlassCard>
-          </div>
-        </section>
+          </Link>
+            </div>
+          </section>
 
         <section className="mt-12">
           <div className="mb-4 flex items-center justify-between gap-4">
@@ -813,59 +821,7 @@ const kvadrantRows: LevelRow[] =
           />
         </section>
 
-        <section className="mt-14">
-          <SectionIntro
-            eyebrow="Indgange"
-            title="Vælg dit perspektiv"
-            text="Udforsk data fra forskellige indgange alt efter rolle, behov og spørgsmål."
-          />
-
-          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <GlassCard hover accent="slate" className="p-6">
-              <CardEyebrow tone="slate">Indgang</CardEyebrow>
-              <div className="mt-4 flex items-center justify-between">
-                <div className="text-lg font-semibold text-slate-950">Speciale / Database</div>
-                <div className="text-slate-400">›</div>
-              </div>
-              <div className="mt-3 text-sm leading-6 text-slate-600">
-                Gå direkte til den kliniske database og se indikatorer, variation og udvikling.
-              </div>
-              <div className="mt-5 border-t border-slate-100 pt-4 text-xs font-medium text-slate-500">
-                Perfekt til klinikere og kvalitetsfolk
-              </div>
-            </GlassCard>
-
-            <GlassCard hover accent="slate" className="p-6">
-              <CardEyebrow tone="slate">Indgang</CardEyebrow>
-              <div className="mt-4 flex items-center justify-between">
-                <div className="text-lg font-semibold text-slate-950">Hospitaler</div>
-                <div className="text-slate-400">›</div>
-              </div>
-              <div className="mt-3 text-sm leading-6 text-slate-600">
-                Se dit hospital på tværs: topplaceringer, forbedring, og hvor I halter.
-              </div>
-              <div className="mt-5 border-t border-slate-100 pt-4 text-xs font-medium text-slate-500">
-                Perfekt til ledelse, presse og borgere
-              </div>
-            </GlassCard>
-
-            <GlassCard hover accent="slate" className="p-6">
-              <CardEyebrow tone="slate">Indgang</CardEyebrow>
-              <div className="mt-4 flex items-center justify-between">
-                <div className="text-lg font-semibold text-slate-950">Dyk ned i data</div>
-                <div className="text-slate-400">›</div>
-              </div>
-              <div className="mt-3 text-sm leading-6 text-slate-600">
-                Gå helt i dybden med databaser, kvalitetsindikatorer og afdelinger. Byg dit
-                eget overblik og skab selv indsigten.
-              </div>
-              <div className="mt-5 border-t border-slate-100 pt-4 text-xs font-medium text-slate-500">
-                Perfekt til klinikere og kvalitetsfolk
-              </div>
-            </GlassCard>
-          </div>
-        </section>
-
+ 
 <section className="mt-12">
   <AnalyseBuilderTeaser />
 </section>
